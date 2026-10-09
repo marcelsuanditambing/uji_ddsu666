@@ -109,10 +109,10 @@ h1{margin:0;font-size:clamp(23px,4vw,32px)}h2{font-size:18px;margin:0 0 12px}.su
 .status.ok{color:#86efac;border-color:#276749}.status.bad{color:#fca5a5;border-color:#7f1d1d}
 .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;min-width:0}
 .label{font-size:13px}.value{font-size:clamp(23px,3vw,34px);font-weight:700;margin-top:7px;overflow-wrap:anywhere}.unit{font-size:14px;color:var(--muted);font-weight:500}
-.small{font-size:12px;margin-top:8px}.trend-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:14px}.lower{display:grid;grid-template-columns:1fr;gap:14px;margin-top:14px}
+.small{font-size:12px;margin-top:8px}.trend-panel{margin-top:14px}.trend-header{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}.trend-header h2{margin:0}.trend-controls{display:flex;gap:8px;flex-wrap:wrap}.trend-btn{background:#0d1626;color:#c5d4ec;border:1px solid #344761;border-radius:9px;padding:9px 13px;font-size:13px;cursor:pointer}.trend-btn:hover{border-color:#65a8ff}.trend-btn.active{background:#1d4d83;border-color:#65a8ff;color:#fff;font-weight:700}.trend-panel canvas{height:360px}.lower{display:grid;grid-template-columns:1fr;gap:14px;margin-top:14px}
 canvas{width:100%;height:230px;display:block}.meter-info{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .info{background:#0d1626;border:1px solid var(--line);border-radius:12px;padding:12px}.error{display:none;background:#451a1a;border:1px solid #7f1d1d;color:#fecaca;padding:13px;border-radius:12px;margin-bottom:14px;white-space:pre-wrap}
-footer{margin-top:18px;font-size:12px}@media(max-width:1050px){.trend-grid{grid-template-columns:1fr 1fr}}@media(max-width:850px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.trend-grid{grid-template-columns:1fr}.lower{grid-template-columns:1fr}}
+footer{margin-top:18px;font-size:12px}@media(max-width:850px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lower{grid-template-columns:1fr}.trend-panel canvas{height:300px}}
 @media(max-width:430px){main{padding:18px 12px 30px}.card{padding:14px}.grid{gap:9px}}
 </style>
 </head>
@@ -129,10 +129,17 @@ footer{margin-top:18px;font-size:12px}@media(max-width:1050px){.trend-grid{grid-
 <div class="card"><div class="label">Frekuensi</div><div class="value"><span id="frequency">—</span> <span class="unit">Hz</span></div><div class="small">Frekuensi jaringan</div></div>
 <div class="card"><div class="label">Energi aktif</div><div class="value"><span id="energy">—</span> <span class="unit">kWh</span></div><div class="small">Energi kumulatif</div></div>
 </section>
-<section class="trend-grid">
-<div class="card"><h2>Tren daya aktif</h2><canvas id="chartPower" width="700" height="240"></canvas><div class="small">Daya aktif (kW) · 60 titik terakhir.</div></div>
-<div class="card"><h2>Tren daya reaktif</h2><canvas id="chartReactive" width="700" height="240"></canvas><div class="small">Daya reaktif (kvar) · 60 titik terakhir.</div></div>
-<div class="card"><h2>Tren power factor</h2><canvas id="chartPF" width="700" height="240"></canvas><div class="small">Power factor · 60 titik terakhir.</div></div>
+<section class="card trend-panel">
+<div class="trend-header">
+  <h2>Tren Pengukuran</h2>
+  <div class="trend-controls" role="group" aria-label="Pilih grafik">
+    <button class="trend-btn active" data-chart="power" type="button">Daya aktif</button>
+    <button class="trend-btn" data-chart="reactive" type="button">Daya reaktif</button>
+    <button class="trend-btn" data-chart="pf" type="button">Power factor</button>
+  </div>
+</div>
+<canvas id="trendChart" width="1000" height="360"></canvas>
+<div id="chartCaption" class="small">Daya aktif (kW) · 60 titik terakhir.</div>
 </section>
 <section class="lower">
 <div class="card"><h2>Status pembacaan</h2><div class="meter-info">
@@ -148,28 +155,73 @@ footer{margin-top:18px;font-size:12px}@media(max-width:1050px){.trend-grid{grid-
 const historyData=[];
 const $=id=>document.getElementById(id);
 const fmt=(n,d=2)=>(typeof n==='number'&&Number.isFinite(n))?n.toLocaleString('id-ID',{minimumFractionDigits:d,maximumFractionDigits:d}):'—';
+let selectedChart='power';
 
-function drawLineChart(canvasId,key,unit,fixedMin=null,fixedMax=null){
- const canvas=$(canvasId),ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height,pad=42;
- ctx.clearRect(0,0,w,h);ctx.font='12px Segoe UI,Arial';ctx.strokeStyle='#25344d';ctx.fillStyle='#98a9c4';ctx.lineWidth=1;
- const vals=historyData.map(p=>p[key]).filter(v=>Number.isFinite(v));
+const chartConfig={
+ power:{key:'power',title:'Daya aktif',unit:'kW',caption:'Daya aktif (kW) · 60 titik terakhir.',min:null,max:null},
+ reactive:{key:'reactive',title:'Daya reaktif',unit:'kvar',caption:'Daya reaktif (kvar) · 60 titik terakhir.',min:null,max:null},
+ pf:{key:'pf',title:'Power factor',unit:'PF',caption:'Power factor · skala 0–1 · 60 titik terakhir.',min:0,max:1}
+};
+
+function drawSelectedChart(){
+ const canvas=$('trendChart'),ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height,pad=58;
+ const cfg=chartConfig[selectedChart];
+ ctx.clearRect(0,0,w,h);
+ ctx.font='14px Segoe UI,Arial';
+ ctx.strokeStyle='#25344d';ctx.fillStyle='#98a9c4';ctx.lineWidth=1;
+ const vals=historyData.map(p=>p[cfg.key]).filter(v=>Number.isFinite(v));
  if(!vals.length){ctx.fillText('Menunggu data...',pad,h/2);return;}
- let min=fixedMin!==null?fixedMin:Math.min(0,...vals);
- let max=fixedMax!==null?fixedMax:Math.max(0.1,...vals);
- if(fixedMin===null&&fixedMax===null){const span=Math.max(max-min,0.05);min=Math.min(0,min-span*0.1);max+=span*0.15;}
+ let min=cfg.min!==null?cfg.min:Math.min(0,...vals);
+ let max=cfg.max!==null?cfg.max:Math.max(0.1,...vals);
+ if(cfg.min===null&&cfg.max===null){
+   const span=Math.max(max-min,0.05);
+   min=Math.min(0,min-span*0.1);
+   max+=span*0.15;
+ }
  if(max===min)max=min+1;
- for(let i=0;i<=4;i++){const y=pad+(h-2*pad)*i/4,val=max-(max-min)*i/4;ctx.beginPath();ctx.moveTo(pad,y);ctx.lineTo(w-pad,y);ctx.stroke();ctx.fillText(val.toFixed(2),2,y+4);}
- ctx.fillText(unit,w-pad+2,h-pad+18);
- if(vals.length===1){const x=w/2,y=h-pad-(vals[0]-min)/(max-min)*(h-2*pad);ctx.fillStyle='#65a8ff';ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill();return;}
- ctx.strokeStyle='#65a8ff';ctx.lineWidth=2.5;ctx.beginPath();
- historyData.forEach((p,i)=>{const x=pad+(w-2*pad)*i/(historyData.length-1),y=h-pad-(p[key]-min)/(max-min)*(h-2*pad);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});
- ctx.stroke();
+ for(let i=0;i<=4;i++){
+   const y=pad+(h-2*pad)*i/4;
+   const val=max-(max-min)*i/4;
+   ctx.beginPath();ctx.moveTo(pad,y);ctx.lineTo(w-pad,y);ctx.stroke();
+   ctx.fillText(val.toFixed(2),8,y+5);
+ }
+ ctx.fillText(cfg.unit,w-pad+5,h-pad+25);
+ if(vals.length===1){
+   const x=w/2,y=h-pad-(vals[0]-min)/(max-min)*(h-2*pad);
+   ctx.fillStyle='#65a8ff';ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();
+ }else{
+   ctx.strokeStyle='#65a8ff';ctx.lineWidth=3;ctx.beginPath();
+   historyData.forEach((p,i)=>{
+     const x=pad+(w-2*pad)*i/(historyData.length-1);
+     const y=h-pad-(p[cfg.key]-min)/(max-min)*(h-2*pad);
+     if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+   });
+   ctx.stroke();
+ }
+ // Highlight latest sample so small variations are easier to see.
+ const last=historyData[historyData.length-1];
+ if(last){
+   const x=historyData.length===1?w/2:pad+(w-2*pad)*(historyData.length-1)/(historyData.length-1);
+   const y=h-pad-(last[cfg.key]-min)/(max-min)*(h-2*pad);
+   ctx.fillStyle='#65a8ff';ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();
+ }
 }
-function drawAllCharts(){
- drawLineChart('chartPower','power','kW');
- drawLineChart('chartReactive','reactive','kvar');
- drawLineChart('chartPF','pf','PF',0,1);
+
+function selectChart(chart){
+ if(!chartConfig[chart])return;
+ selectedChart=chart;
+ document.querySelectorAll('.trend-btn').forEach(btn=>{
+   const active=btn.dataset.chart===chart;
+   btn.classList.toggle('active',active);
+   btn.setAttribute('aria-pressed',active?'true':'false');
+ });
+ $('chartCaption').textContent=chartConfig[chart].caption;
+ drawSelectedChart();
 }
+document.querySelectorAll('.trend-btn').forEach(btn=>{
+ btn.addEventListener('click',()=>selectChart(btn.dataset.chart));
+});
+
 async function update(){
  try{
   const res=await fetch('/api/data',{cache:'no-store'}),d=await res.json();
@@ -180,10 +232,16 @@ async function update(){
   $('frequency').textContent=fmt(d.frequency_hz,2);$('energy').textContent=d.energy_kwh==null?'N/A':fmt(d.energy_kwh,2);
   $('loading').textContent=fmt(d.loading_pct,1);$('updated').textContent=new Date(d.timestamp).toLocaleTimeString('id-ID');
   historyData.push({power:d.active_power_kw,reactive:d.reactive_power_kvar,pf:d.power_factor});
-  if(historyData.length>60)historyData.shift();drawAllCharts();
- }catch(e){$('status').textContent='Tidak terhubung';$('status').className='status bad';$('error').style.display='block';$('error').textContent='Pembacaan gagal: '+e.message+'\\nPeriksa apakah COM5 dipakai aplikasi lain, kabel A/B, dan setting Modbus.';}
+  if(historyData.length>60)historyData.shift();
+  drawSelectedChart();
+ }catch(e){
+  $('status').textContent='Tidak terhubung';$('status').className='status bad';$('error').style.display='block';
+  $('error').textContent='Pembacaan gagal: '+e.message+'\\nPeriksa apakah COM5 dipakai aplikasi lain, kabel A/B, dan setting Modbus.';
+ }
 }
-update();setInterval(update,2000);
+selectChart('power');
+update();
+setInterval(update,2000);
 </script></body></html>
 """
 
