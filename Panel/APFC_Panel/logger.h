@@ -24,7 +24,7 @@ void taskLog(void*) {
   { Lock l; G.sdOk = ok; }
   uint32_t lastLog = 0, lastTry = millis();
   char path[32], line[256];
-  const char* HDR = "ts_device,uptime_s,seq,v,i,p,q,s,pf,f,q_load,q_need,kwh,kvarh_ind,kvarh_cap,kvarh_load,s1,s2,s3,xs1,xs2,mode,state";
+  const char* HDR = "ts_device,uptime_s,seq,v,i,p,q,s,pf,f,q_load,q_need,kwh,kvarh_ind,kvarh_cap,kvarh_load,s1,s2,s3,beban_k1,mode,state";
   for (;;) {
     if (!ok && millis() - lastTry > 60000) {
       lastTry = millis();
@@ -48,10 +48,10 @@ void taskLog(void*) {
         } else {
           strlcpy(path, "/log/no_time.csv", sizeof(path));
         }
-        snprintf(line, sizeof(line), "%lu,%lu,%lu,%.1f,%.3f,%.1f,%.1f,%.1f,%.3f,%.2f,%.1f,%.1f,%.5f,%.5f,%.5f,%.5f,%d,%d,%d,%d,%d,%s,%s",
+        snprintf(line, sizeof(line), "%lu,%lu,%lu,%.1f,%.3f,%.1f,%.1f,%.1f,%.3f,%.2f,%.1f,%.1f,%.5f,%.5f,%.5f,%.5f,%d,%d,%d,%d,%s,%s",
                  (unsigned long)unixTime(), (unsigned long)(millis() / 1000), (unsigned long)s.seq, s.last.v, s.last.i,
                  s.last.p, s.last.q, s.last.s, s.last.pf, s.last.f, s.q_load, s.q_need, s.e.kwh, s.e.kvarh_ind,
-                 s.e.kvarh_cap, s.e.kvarh_load, s.step[0], s.step[1], s.step[2], s.sock[0], s.sock[1],
+                 s.e.kvarh_cap, s.e.kvarh_load, s.step[0], s.step[1], s.step[2], s.sock[0],
                  STATE_NAME[s.mode], STATE_NAME[s.state]);
         File probe = SD.open("/log");
         if (!probe) { ok = false; Lock l; G.sdOk = false; Serial.println("[SD] kartu terlepas"); }

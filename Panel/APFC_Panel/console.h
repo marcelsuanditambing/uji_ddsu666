@@ -10,7 +10,7 @@ void printHelp() {
       "live on|off            tampilkan/sembunyikan data tiap 2 s\n"
       "mode auto|manual       pilih mode\n"
       "step <1-3> on|off      atur step kapasitor (hanya MANUAL)\n"
-      "socket <1-2> on|off    atur stopkontak relay (1 = K1/XS2)\n"
+      "beban on|off           nyalakan/matikan beban demo (relay K1, kontak NC)\n"
       "params                 tampilkan parameter\n"
       "set <kunci> <nilai>    ubah parameter, mis. set c3 4.1 | set pf_target 0.95\n"
       "energy reset           nolkan penghitung kWh/kVArh\n"
@@ -34,7 +34,7 @@ void printStatus() {
                 s.wifiOk, s.mqttOk, s.sdOk, s.lcdOk, s.ip);
   Serial.printf("V=%.1f I=%.3f P=%.1f Q=%.1f PF=%.3f f=%.2f Qload=%.1f Qneed=%.1f\n", s.last.v, s.last.i, s.last.p,
                 s.last.q, s.last.pf, s.last.f, s.q_load, s.q_need);
-  Serial.printf("steps C1=%d C2=%d C3=%d  sockets XS2(K1)=%d K2=%d\n", s.step[0], s.step[1], s.step[2], s.sock[0], s.sock[1]);
+  Serial.printf("steps C1=%d C2=%d C3=%d  beban K1=%s\n", s.step[0], s.step[1], s.step[2], s.sock[0] ? "MENYALA" : "PADAM");
   Serial.printf("kWh=%.5f kVArh_ind=%.5f kVArh_cap=%.5f kVArh_tanpaAPFC=%.5f penalti=Rp%.0f\n", s.e.kwh,
                 s.e.kvarh_ind, s.e.kvarh_cap, s.e.kvarh_load, penaltyRp(s.e));
   for (int k = 0; k < NUM_STEPS; k++)
@@ -68,6 +68,9 @@ void handleLine(String line) {
   else if (!strcmp(a, "mode")) {
     if (strcmp(b, "auto") && strcmp(b, "manual")) { Serial.println("pakai: mode auto|manual"); return; }
     c.type = C_MODE; c.a = !strcmp(b, "manual") ? ST_MANUAL : ST_AUTO; queueCmd(c);
+  } else if (!strcmp(a, "beban")) {
+    if (strcmp(b, "on") && strcmp(b, "off")) { Serial.println("pakai: beban on|off"); return; }
+    c.type = C_SOCKET; c.a = 1; c.b = !strcmp(b, "on"); queueCmd(c);
   } else if (!strcmp(a, "step") || !strcmp(a, "socket")) {
     c.type = !strcmp(a, "step") ? C_STEP : C_SOCKET;
     c.a = atoi(b);

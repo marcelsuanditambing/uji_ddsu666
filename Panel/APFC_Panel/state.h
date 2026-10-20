@@ -6,7 +6,7 @@ enum State : uint8_t { ST_INIT, ST_AUTO, ST_MANUAL, ST_FAILSAFE };
 static const char* STATE_NAME[] = {"INIT", "AUTO", "MANUAL", "FAILSAFE"};
 
 #define NUM_STEPS   3
-#define NUM_SOCKETS 2
+#define NUM_SOCKETS 1   // hanya relay K1 (beban demo)
 
 struct Sample {
   bool     valid = false;     // nilai dalam rentang
@@ -38,7 +38,7 @@ struct Shared {
   State    state = ST_INIT;
   State    mode = ST_AUTO;            // mode pilihan pengguna (AUTO/MANUAL)
   bool     step[NUM_STEPS] = {false, false, false};
-  bool     sock[NUM_SOCKETS] = {false, false};
+  bool     sock[NUM_SOCKETS] = {true};      // true = beban MENYALA (bukan status kumparan relay)
   uint32_t stepOffMs[NUM_STEPS] = {0, 0, 0};
   uint32_t stepOnMs[NUM_STEPS] = {0, 0, 0};
   float    q_load = 0, q_need = 0;

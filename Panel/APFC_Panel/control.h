@@ -252,11 +252,12 @@ void execCommand(const Command& c) {
       }
       case C_SOCKET: {
         int k = c.a - 1;
-        if (k < 0 || k >= NUM_SOCKETS) { snprintf(msg, sizeof(msg), "stopkontak harus 1-%d", NUM_SOCKETS); break; }
+        if (k < 0 || k >= NUM_SOCKETS) { snprintf(msg, sizeof(msg), "hanya beban 1 (relay K1)"); break; }
         G.sock[k] = c.b;
         hwSocket(k, c.b);
         G.statusDirty = true;
-        snprintf(msg, sizeof(msg), "stopkontak %d %s", k + 1, c.b ? "ON" : "OFF");
+        snprintf(msg, sizeof(msg), "beban K1 %s", c.b ? "dinyalakan" : "dimatikan");
+        postEvent("LOAD", c.b ? "beban K1 menyala" : "beban K1 padam");
         ok = true;
         break;
       }

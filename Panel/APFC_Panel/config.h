@@ -4,7 +4,7 @@
 // =====================================================================
 #pragma once
 
-#define FW_VERSION      "1.1.1"
+#define FW_VERSION      "1.2.0"
 #define PANEL_ID        "panel01"          // prefiks topik MQTT: apfc/panel01/...
 
 // ---------------- Wi-Fi & MQTT ----------------
@@ -23,11 +23,13 @@
 #define PIN_I2C_SDA     21   // → LV1 level shifter → SDA LCD
 #define PIN_I2C_SCL     22   // → LV2 level shifter → SCL LCD
 #define PIN_SD_CS       5    // microSD: SCK 18, MISO 19, MOSI 23 (SPI bawaan)
-#define PIN_SSR1        25   // SSR CH1 → step C1
-#define PIN_SSR2        26   // SSR CH2 → step C2
-#define PIN_SSR3        27   // SSR CH3 → step C3
-#define PIN_RELAY1      32   // relay IN1 → K1 → stopkontak terkendali (XS2)
-#define PIN_RELAY2      33   // relay IN2 → K2 (cadangan)
+#define PIN_SSR1        25   // SSR CH1 → step C1 (2 µF)
+#define PIN_SSR2        26   // SSR CH2 → step C2 (4 µF)
+#define PIN_SSR3        27   // SSR CH3 → step C3 (6 µF)
+#define PIN_RELAY1      32   // relay IN1 → K1 → beban demo terkendali (lewat kontak NC)
+// IO33 (IN2) dan relay K2–K4 tidak dipakai.
+#define LOAD_K1_NC      1    // 1 = beban di kontak NC: relay tidak bekerja → beban MENYALA (juga saat ESP32 mati)
+                             // 0 = beban di kontak NO: relay bekerja → beban menyala
 // IO34 bebas (cadangan input). E-stop dipasang sebelum RCBO dan memutus seluruh panel termasuk ESP32,
 // sehingga firmware tidak perlu membaca tombol darurat.
 #define PIN_LED         2    // LED biru bawaan board
@@ -42,12 +44,12 @@
 #define SAMPLE_PERIOD_MS 2000
 
 // ---------------- Bank kapasitor (µF efektif, hasil kalibrasi) ----------------
-// ESP32 memilih sendiri kombinasi terbaik dari ketiga step (mis. 4 / 6 / 4+6 / 6+6 / 4+6+6 µF).
-// Saat ini ketiga step 6 µF. Setelah kapasitor 4 µF terpasang di step 3, ubah C_STEP3_UF ke 4.00f
-// (atau tanpa upload ulang: ketik "set c3 4.0" di Serial Monitor — tersimpan permanen di NVS).
-#define C_STEP1_UF      6.36f
-#define C_STEP2_UF      6.36f
-#define C_STEP3_UF      6.36f
+// ESP32 memilih sendiri kombinasi terbaik: 2 / 4 / 6 / 2+4 / 2+6 / 4+6 / 2+4+6 µF (bertahap ±2 µF).
+// Bila nilai di sini diubah lalu di-upload, nilai c1–c3 lama di NVS otomatis diganti nilai baru.
+// Kalibrasi halus tanpa upload: "set c1 2.05" dst. di Serial Monitor / dashboard.
+#define C_STEP1_UF      2.00f   // SSR1: CBB61 2 µF
+#define C_STEP2_UF      4.00f   // SSR2: 4 µF
+#define C_STEP3_UF      6.36f   // SSR3: CBB60 6 µF (efektif terukur 6,36–6,41 µF)
 
 // ---------------- Parameter kendali bawaan (bisa diubah lewat perintah "set") ----------------
 #define DEF_PF_TARGET   0.95f   // target cos φ

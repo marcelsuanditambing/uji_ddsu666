@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APFC Panel — Dashboard</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script src="{{ url_for('static', filename='chart.umd.js') }}"></script>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="currentColor"/></svg>
+    </div>
+    <div>
+      <div class="title">APFC Panel <span class="pid">{{ panel }}</span></div>
+      <div class="sub">IoT Automatic Power Factor Correction · Tim Aku Anak Sehat</div>
+    </div>
+  </div>
+  <div class="chips">
+    <span class="chip" id="chip-online"><i></i><b>Menghubungkan…</b></span>
+    <span class="chip" id="chip-state"><i></i><b>—</b></span>
+    <span class="chip" id="chip-mode"><b>Mode —</b></span>
+    <span class="chip muted" id="chip-age"><b>Data: —</b></span>
+  </div>
+</header>
+
+<div class="banner hidden" id="banner"></div>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" class="tab active" data-tab="ringkasan">Ringkasan</button>
+  <button role="tab" class="tab" data-tab="tren">Tren</button>
+  <button role="tab" class="tab" data-tab="energi">Energi &amp; Penalti</button>
+  <button role="tab" class="tab" data-tab="kontrol">Kontrol</button>
+  <button role="tab" class="tab" data-tab="log">Log</button>
+</nav>
+
+<main>
+<!-- ======================================================= RINGKASAN -->
+<section class="pane active" id="pane-ringkasan">
+  <div class="grid-hero">
+    <div class="card gauge-card">
+      <div class="card-h">Faktor daya (cos φ)</div>
+      <svg id="gauge" viewBox="0 0 240 124" role="img" aria-label="Gauge faktor daya"></svg>
+      <div class="pf-big num" id="pf-val">—</div>
+      <div class="pf-nature" id="pf-nature">—</div>
+      <div class="pf-legend">
+        <span><i class="z bad"></i>&lt; 0,85 kena penalti</span>
+        <span><i class="z warn"></i>0,85–0,95</span>
+        <span><i class="z good"></i>≥ 0,95 target</span>
+      </div>
+    </div>
+    <div class="metrics">
+      <div class="card metric"><div class="m-l">Tegangan</div><div class="m-v num"><span id="m-v">—</span><small>V</small></div></div>
+      <div class="card metric"><div class="m-l">Arus</div><div class="m-v num"><span id="m-i">—</span><small>A</small></div></div>
+      <div class="card metric"><div class="m-l">Frekuensi</div><div class="m-v num"><span id="m-f">—</span><small>Hz</small></div></div>
+      <div class="card metric"><div class="m-l">Daya aktif P</div><div class="m-v num"><span id="m-p">—</span><small>W</small></div></div>
+      <div class="card metric"><div class="m-l">Daya reaktif Q</div><div class="m-v num"><span id="m-q">—</span><small>var</small></div><div class="m-n" id="m-qn"></div></div>
+      <div class="card metric"><div class="m-l">Daya semu S</div><div class="m-v num"><span id="m-s">—</span><small>VA</small></div></div>
+    </div>
+  </div>
+
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-h">Kompensasi daya reaktif</div>
+      <div class="comp" id="comp">
+        <div class="comp-row"><span class="comp-l">Q beban (tanpa APFC)</span><div class="bar"><i id="b-load" class="b-load"></i></div><span class="comp-v num" id="v-load">—</span></div>
+        <div class="comp-row"><span class="comp-l">Q dipasok kapasitor</span><div class="bar"><i id="b-cap" class="b-cap"></i></div><span class="comp-v num" id="v-cap">—</span></div>
+        <div class="comp-row"><span class="comp-l">Q sisa ke jaringan</span><div class="bar"><i id="b-res" class="b-res"></i></div><span class="comp-v num" id="v-res">—</span></div>
+      </div>
+      <div class="hint" id="comp-hint">—</div>
+    </div>
+    <div class="card">
+      <div class="card-h">Step kapasitor</div>
+      <div class="steps" id="steps-view"></div>
+    </div>
+    <div class="card">
+      <div class="card-h">Beban &amp; panel</div>
+      <ul class="kv" id="panel-kv"></ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h">PF 10 menit terakhir <span class="card-hint">garis putus-putus = target 0,95 · garis tegak = step/beban berubah</span></div>
+    <div class="chart-box sm"><canvas id="ch-mini"></canvas></div>
+  </div>
+</section>
+
+<!-- ======================================================= TREN -->
+<section class="pane" id="pane-tren">
+  <div class="toolbar">
+    <div class="seg" id="seg-range">
+      <button data-v="10" class="on">10 menit</button><button data-v="60">1 jam</button><button data-v="today">Hari ini</button>
+    </div>
+    <button class="btn ghost" id="btn-table">Tampilkan tabel</button>
+  </div>
+  <div class="card">
+    <div class="card-h">Faktor daya <span class="card-hint">target 0,95</span></div>
+    <div class="chart-box"><canvas id="ch-pf"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-h">Daya aktif P dan daya reaktif Q <span class="card-hint">Q &lt; 0 = kapasitif</span></div>
+    <div class="chart-box"><canvas id="ch-pq"></canvas></div>
+  </div>
+  <div class="card hidden" id="tren-table-card">
+    <div class="card-h">Data (30 titik terakhir pada rentang ini)</div>
+    <div class="table-wrap"><table class="tbl num" id="tren-table"></table></div>
+  </div>
+</section>
+
+<!-- ======================================================= ENERGI -->
+<section class="pane" id="pane-energi">
+  <div class="toolbar">
+    <div class="seg" id="seg-period">
+      <button data-v="session" class="on">Sesi ini</button><button data-v="today">Hari ini</button><button data-v="all">Semua data</button>
+    </div>
+    <div class="seg" id="seg-scale">
+      <button data-v="1">×1 (prototipe)</button><button data-v="1000" class="on">×1000 (setara industri)</button>
+    </div>
+  </div>
+  <div class="grid-3 money">
+    <div class="card tile bad-t"><div class="t-l">Penalti tanpa APFC</div><div class="t-v num" id="e-pw">—</div><div class="t-s" id="e-pw-s">—</div></div>
+    <div class="card tile"><div class="t-l">Penalti dengan APFC</div><div class="t-v num" id="e-pa">—</div><div class="t-s" id="e-pa-s">—</div></div>
+    <div class="card tile good-t"><div class="t-l">Penghematan</div><div class="t-v num" id="e-sv">—</div><div class="t-s" id="e-sv-s">—</div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-h">Rasio kVArh / kWh terhadap batas PLN 0,62</div>
+      <div class="ratio">
+        <div class="r-row"><span class="r-l">Tanpa APFC</span><div class="r-bar"><i id="r-without"></i><em class="r-lim"></em></div><span class="r-v num" id="r-without-v">—</span></div>
+        <div class="r-row"><span class="r-l">Dengan APFC</span><div class="r-bar"><i id="r-with"></i><em class="r-lim"></em></div><span class="r-v num" id="r-with-v">—</span></div>
+        <div class="r-axis"><div class="r-axis-in"><span class="r-lim-l">▲ batas 0,62</span></div></div>
+      </div>
+      <div class="hint">Di atas 0,62 (setara cos φ rata-rata &lt; 0,85), kelebihan kVArh dikenai denda.</div>
+    </div>
+    <div class="card">
+      <div class="card-h">Rincian energi <span class="card-hint" id="e-period">—</span></div>
+      <div class="table-wrap"><table class="tbl num" id="e-table"></table></div>
+    </div>
+  </div>
+  <div class="note">Tarif kelebihan kVArh <b id="e-tariff">—</b> adalah <b>asumsi</b> (TDB Bab 3). Skala ×1000 hanya mengubah satuan tampilan agar beban demo ratusan watt terbaca sebagai beban industri ratusan kilowatt; rasio kVArh/kWh tidak berubah oleh skala.</div>
+</section>
+
+<!-- ======================================================= KONTROL -->
+<section class="pane" id="pane-kontrol">
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-h">Mode operasi</div>
+      <div class="seg big" id="ctl-mode"><button data-v="AUTO">AUTO</button><button data-v="MANUAL">MANUAL</button></div>
+      <div class="hint" id="ctl-mode-hint">AUTO: ESP32 memilih sendiri kombinasi kapasitor sesuai kebutuhan Q. MANUAL: step diatur dari sini.</div>
+      <div class="card-h mt">Step kapasitor</div>
+      <div id="ctl-steps"></div>
+    </div>
+    <div class="card">
+      <div class="card-h">Beban demo (relay K1)</div>
+      <div id="ctl-socks"></div>
+      <div class="card-h mt">Parameter</div>
+      <form class="param" id="ctl-param">
+        <select id="p-key">
+          <option value="pf_target">pf_target — target cos φ (0,90–0,99)</option>
+          <option value="c1">c1 — kapasitansi step 1 (µF)</option>
+          <option value="c2">c2 — kapasitansi step 2 (µF)</option>
+          <option value="c3">c3 — kapasitansi step 3 (µF)</option>
+          <option value="lead_w">lead_w — bobot kondisi kapasitif (1–5)</option>
+          <option value="hyst">hyst — histeresis (0,05–0,9)</option>
+          <option value="t_reconnect">t_reconnect — jeda sambung ulang (10–60 s)</option>
+          <option value="p_min">p_min — daya minimum (W)</option>
+        </select>
+        <input id="p-val" type="number" step="any" required placeholder="nilai">
+        <button class="btn" type="submit">Kirim</button>
+      </form>
+      <div class="hint" id="p-cur">—</div>
+      <div class="card-h mt">Penghitung energi</div>
+      <button class="btn danger-o" id="btn-ereset">Reset kWh / kVArh…</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-h">Riwayat perintah</div>
+    <ul class="cmdlog" id="cmdlog"><li class="empty">Belum ada perintah.</li></ul>
+  </div>
+</section>
+
+<!-- ======================================================= LOG -->
+<section class="pane" id="pane-log">
+  <div class="toolbar">
+    <div class="seg" id="seg-evt">
+      <button data-v="" class="on">Semua</button><button data-v="STEP">Step</button><button data-v="LOAD">Beban</button><button data-v="MODE">Mode</button><button data-v="ALARM">Alarm</button><button data-v="CMD_REJECT">Ditolak</button><button data-v="NET">Koneksi</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-h">Kejadian <span class="card-hint">terbaru di atas</span></div>
+    <div class="table-wrap"><table class="tbl" id="evt-table"></table></div>
+  </div>
+  <div class="card">
+    <div class="card-h">Berkas CSV harian <span class="card-hint">untuk analisis Bab 9</span></div>
+    <ul class="files" id="csv-list"></ul>
+  </div>
+</section>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<dialog id="dlg">
+  <form method="dialog">
+    <h3 id="dlg-t">Konfirmasi</h3>
+    <p id="dlg-m"></p>
+    <div class="dlg-b"><button value="no" class="btn ghost">Batal</button><button value="yes" class="btn danger">Ya, lanjutkan</button></div>
+  </form>
+</dialog>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

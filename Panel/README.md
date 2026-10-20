@@ -1,4 +1,4 @@
-# APFC Panel — Firmware ESP32 v1.1.1
+# APFC Panel — Firmware ESP32 v1.2.0
 
 Firmware panel IoT Automatic Power Factor Correction (Fase 1) — Tim Aku Anak Sehat.
 Spesifikasi lengkap: *Technical Design Book* TDB-APFC-01, Bab 7.
@@ -21,6 +21,12 @@ mosquitto.conf      contoh konfigurasi broker di laptop
 ```
 
 Kode sudah dikompilasi tanpa error dan tanpa peringatan pada paket ESP32 **3.0.7** (flash 79 %) dan **2.0.17** (flash 36 %).
+
+**Perubahan v1.2.0**
+- Bank kapasitor baru: **SSR1 = 2 µF, SSR2 = 4 µF, SSR3 = 6 µF** (`C_STEP1_UF…C_STEP3_UF` = 2.00 / 4.00 / 6.36). ESP32 memilih kombinasi 2 / 4 / 6 / 2+4 / 2+6 / 4+6 / 2+4+6 µF sesuai kebutuhan Q.
+- Bila nilai kapasitor di `config.h` diubah lalu di-upload, nilai c1–c3 lama di NVS **otomatis diganti** (tidak perlu `factory`).
+- Relay **K1 memakai kontak NC**: relay tidak bekerja = beban MENYALA (juga saat ESP32 mati/reset). Status `sockets[0]` di MQTT kini berarti **beban menyala (1) / padam (0)**. Perintah Serial baru: `beban on|off`. Event baru `LOAD`.
+- Relay K2–K4 tidak dipakai (IO33 bebas). `NUM_SOCKETS` = 1.
 
 **Perubahan v1.1.1**
 - LCD: layar 1 (V, I, P, Q, PF, f) tampil 60 s, layar 2 (energi) 10 s, layar 3 (status) 10 s — atur di `LCD_PAGE1_MS…LCD_PAGE3_MS`.
@@ -54,10 +60,11 @@ Kode sudah dikompilasi tanpa error dan tanpa peringatan pada paket ESP32 **3.0.7
 |---|---|
 | `WIFI_SSID`, `WIFI_PASS` | Wi-Fi yang sama dengan laptop. Biarkan `""` untuk uji tanpa Wi-Fi. |
 | `MQTT_HOST` | IP laptop (Windows: `ipconfig` → IPv4 Address) |
-| `C_STEP1_UF … C_STEP3_UF` | Kapasitansi efektif tiap step. Bawaan 6.36f untuk ketiganya. **Setelah kapasitor 4 µF terpasang di step 3**, ubah `C_STEP3_UF` ke 4.00f — atau tanpa upload ulang, ketik `set c3 4.0` di Serial Monitor (tersimpan permanen). |
+| `C_STEP1_UF … C_STEP3_UF` | Kapasitansi efektif tiap step: 2.00 / 4.00 / 6.36 µF (SSR1/SSR2/SSR3). Kalibrasi halus tanpa upload: `set c1 2.05` dst. |
+| `LOAD_K1_NC` | 1 = beban di kontak NC relay K1 (bawaan), 0 = kontak NO. |
 | `LCD_ADDR` | `0x27` (coba `0x3F` bila LCD kosong). |
 
-Pemetaan pin (sesuai Gbr M-1): RS485 RX/TX = IO16/IO17 (lewat level shifter LV3/LV4) · LCD SDA/SCL = IO21/IO22 (LV1/LV2) · SSR CH1–CH3 = **IO25, IO26, IO27** · relay IN1 (K1 → stopkontak XS2) = IO32, IN2 = IO33 · microSD CS = IO5 · IO34 cadangan.
+Pemetaan pin (sesuai Gbr M-1): RS485 RX/TX = IO16/IO17 (lewat level shifter LV3/LV4) · LCD SDA/SCL = IO21/IO22 (LV1/LV2) · SSR CH1–CH3 = **IO25, IO26, IO27** · relay IN1 (K1, kontak NC → beban demo) = IO32 · IO33 bebas · microSD CS = IO5 · IO34 cadangan.
 
 ## 3. Upload
 
@@ -79,17 +86,17 @@ Gunakan Serial Monitor. Ketik `help` untuk semua perintah.
 3. **Uji tiap step (mode manual)**, beban lampu menyala:
    ```
    mode manual
-   step 1 on      → Q turun ±100 var, pilot H1 menyala, LED SSR CH1 menyala
+   step 1 on      → Q turun ±30 var (2 µF), pilot H1 & LED SSR CH1 menyala
    step 1 off
-   step 2 on / off, step 3 on / off
+   step 2 on / off → Q turun ±60 var (4 µF)
+   step 3 on / off → Q turun ±95 var (6 µF)
    ```
    Menyalakan step yang sama < 10 s setelah dilepas akan **ditolak** (jeda pembuangan muatan) — itu normal.
 4. **Kalibrasi kapasitansi** (opsional, lebih akurat): dari penurunan Q tiap step hitung `C = ΔQ / (2π·50·V²)`, lalu `set c1 6.30` (dan c2, c3). Tersimpan permanen.
 5. **Uji reset ESP32** — saat `step 1 on`, tekan tombol **EN**: SSR harus langsung OFF (LED SSR padam). Bila tidak, tambah resistor 10 kΩ dari IN SSR ke GND.
 6. **Uji tombol darurat** — tekan E-stop: seluruh panel padam (termasuk ESP32 dan LCD). Putar untuk melepas: ESP32 menyala ulang, LCD `Memulai...`, semua step OFF, lalu kembali ke mode terakhir.
-7. **Mode otomatis**: `mode auto`. Nyalakan 1 TL → setelah ±15 s step C3 masuk; 2 TL / kompresor → step bertambah satu per satu (±15 s per step). Pantau di LCD dan Serial.
-8. **Setelah kapasitor 4 µF datang**: pasang di step 3, ketik `set c3 4.0`, lalu ulangi uji langkah 3 untuk step 3 (Q harus turun ±64 var).
-9. Stopkontak terkendali: `socket 1 on` / `socket 1 off` (K1 → XS2).
+7. **Mode otomatis**: `mode auto`. 1 TL (Q ±70 var) → ESP32 memasukkan **C2 (4 µF)**; 2 TL (Q ±145 var) → menjadi **C3 + C1 (6 + 2 µF)**; saat beban turun lagi, ESP32 **menukar** kombinasi (lepas 6+2, masukkan 4). Satu step baru per keputusan (±15 s). Pantau di LCD dan Serial.
+8. **Beban K1 (kontak NC)**: `beban off` → relay klik, beban padam; `beban on` → beban menyala lagi. Setelah reset/padam listrik, beban K1 selalu menyala.
 
 ## 5. Cara kerja algoritma (ringkas)
 
@@ -97,17 +104,16 @@ Gunakan Serial Monitor. Ketik `help` untuk semua perintah.
 - Keputusan memakai rata-rata 5 sampel (10 s); bila beban melompat, rata-rata dimulai ulang.
 - Dari 8 kombinasi step, dipilih yang membuat Q sisa paling kecil (kondisi kapasitif diberi bobot 1,2×). Panel **diam** bila |Q| ≤ P·tan(arccos 0,95), dan hanya pindah bila perbaikannya > 0,2 × Q step terkecil (histeresis, anti-hunting). Maksimal 1 step disambung per keputusan; jeda sambung ulang 10 s.
 - P < 10 W → semua step dilepas. Meter gagal 3× → **FAIL-SAFE** (semua step OFF), pulih setelah 5 bacaan valid.
-- kWh, kVArh induktif/kapasitif, dan kVArh "tanpa APFC" diintegrasi lalu disimpan ke NVS tiap 5 menit.
+- kWh, kVArh induktif/kapasitif, dan kVArh "tanpa APFC" diintegrasi lalu disimpan ke NVS tiap 1 menit.
 
-Hasil simulasi dengan data ukur 18 Okt (tanpa hunting pada semua skenario):
+Perkiraan hasil dengan data ukur 18 Okt (225 V; per step ≈ 32 / 64 / 101 var):
 
-| Beban | 3 × 6 µF (sekarang) | 6 + 6 + 4 µF (setelah 4 µF datang) |
-|---|---|---|
-| 1 TL | 0,75–0,80 kapasitif (6 µF terlalu besar) | 0,97–1,00 |
-| 2 TL | 0,82–0,91 | 0,92–0,95 |
-| 2 TL + kompresor | 0,99–1,00 | 0,97–0,98 |
+| Beban | PF tanpa APFC | Kombinasi dipilih | Q sisa | PF dengan APFC |
+|---|---|---|---|---|
+| 1 TL | 0,40 | 4 µF | +9 var | 0,96 |
+| 2 TL | 0,41 | 2+6,36 µF | +11 var | 0,99 |
 
-Selama step 4 µF belum ada, skenario demo terbaik adalah **2 TL + kompresor**. Bila tidak ingin beban kecil dikoreksi berlebihan ke arah kapasitif, ketik `set lead_w 2` (kembalikan dengan `set lead_w 1.2`).
+Dari 0 ke 2 TL ESP32 memasukkan 6 µF dulu, lalu 2 µF (satu step baru per keputusan). Dari 2 TL turun ke 1 TL, ESP32 langsung menukar 6+2 µF menjadi 4 µF.
 
 ## 6. MQTT (untuk dashboard)
 
@@ -125,10 +131,10 @@ Selama step 4 µF belum ada, skenario demo terbaik adalah **2 TL + kompresor**. 
 
 | Topik | Isi |
 |---|---|
-| `apfc/panel01/telemetry` | tiap 2 s: ts, seq, v, i, p, q, s, pf, f, q_load, q_need, kwh, kwh_m, kvarh_ind, kvarh_cap, kvarh_load, steps[3], sockets[2], mode, state, rssi |
+| `apfc/panel01/telemetry` | tiap 2 s: ts, seq, v, i, p, q, s, pf, f, q_load, q_need, kwh, kwh_m, kvarh_ind, kvarh_cap, kvarh_load, steps[3], sockets[1] (1 = beban K1 menyala), mode, state, rssi |
 | `apfc/panel01/status` (retained) | state, mode, steps, sockets, meter_ok, fw, uptime, ip, c_uf, pf_target |
-| `apfc/panel01/event` | STEP_ON, STEP_OFF, MODE, FAILSAFE, RECOVER, CMD_REJECT |
-| `apfc/panel01/cmd` → `cmd/ack` | set_mode, set_step, set_socket, set_param {key,value}, energy_reset |
+| `apfc/panel01/event` | STEP_ON, STEP_OFF, MODE, LOAD, FAILSAFE, RECOVER, CMD_REJECT |
+| `apfc/panel01/cmd` → `cmd/ack` | set_mode, set_step, set_socket {socket:1, on:1 = nyalakan beban / 0 = matikan}, set_param {key,value}, energy_reset |
 | `apfc/panel01/online` (retained, LWT) | "1" / "0" |
 
 ## 7. Masalah umum
