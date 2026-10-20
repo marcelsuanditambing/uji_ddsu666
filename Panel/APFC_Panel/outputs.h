@@ -10,7 +10,14 @@ const uint8_t RELAY_PIN[NUM_SOCKETS] = {PIN_RELAY1};
 void outInit() {
   for (int k = 0; k < NUM_STEPS; k++)   { digitalWrite(SSR_PIN[k], SSR_OFF_LEVEL);     pinMode(SSR_PIN[k], OUTPUT); }
   // Relay tidak dienergikan saat boot. Dengan kontak NC, beban K1 berarti MENYALA.
-  for (int k = 0; k < NUM_SOCKETS; k++) { digitalWrite(RELAY_PIN[k], RELAY_OFF_LEVEL); pinMode(RELAY_PIN[k], OUTPUT); G.sock[k] = LOAD_K1_NC; }
+  // Relay TIDAK dienergikan saat boot (beban K1 lewat kontak NC = MENYALA). Relay hanya bekerja
+  // setelah perintah "Matikan beban" dari dashboard / "beban off" di Serial.
+  for (int k = 0; k < NUM_SOCKETS; k++) {
+    digitalWrite(RELAY_PIN[k], RELAY_OFF_LEVEL);
+    pinMode(RELAY_PIN[k], RELAY_OPEN_DRAIN ? OUTPUT_OPEN_DRAIN : OUTPUT);
+    digitalWrite(RELAY_PIN[k], RELAY_OFF_LEVEL);
+    G.sock[k] = LOAD_K1_NC;
+  }
   pinMode(PIN_LED, OUTPUT);
 }
 

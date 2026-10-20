@@ -95,6 +95,8 @@ void setup() {
   Serial.begin(SERIAL_BAUD);
   delay(300);
   Serial.printf("\n\nAPFC Panel v%s — %s\n", FW_VERSION, PANEL_ID);
+  Serial.printf("[RELAY] K1 diam (IO%d %s), beban K1 %s\n", PIN_RELAY1, RELAY_OPEN_DRAIN ? "open-drain dilepas" : "HIGH",
+                G.sock[0] ? "MENYALA" : "PADAM");
 
   gMutex = xSemaphoreCreateMutex();
   gCmdQ = xQueueCreate(8, sizeof(Command));

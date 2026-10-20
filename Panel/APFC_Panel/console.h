@@ -34,7 +34,9 @@ void printStatus() {
                 s.wifiOk, s.mqttOk, s.sdOk, s.lcdOk, s.ip);
   Serial.printf("V=%.1f I=%.3f P=%.1f Q=%.1f PF=%.3f f=%.2f Qload=%.1f Qneed=%.1f\n", s.last.v, s.last.i, s.last.p,
                 s.last.q, s.last.pf, s.last.f, s.q_load, s.q_need);
-  Serial.printf("steps C1=%d C2=%d C3=%d  beban K1=%s\n", s.step[0], s.step[1], s.step[2], s.sock[0] ? "MENYALA" : "PADAM");
+  Serial.printf("steps C1=%d C2=%d C3=%d  beban K1=%s (relay %s, pin IO%d terbaca %s)\n", s.step[0], s.step[1], s.step[2],
+                s.sock[0] ? "MENYALA" : "PADAM", (LOAD_K1_NC ? !s.sock[0] : s.sock[0]) ? "BEKERJA" : "DIAM", PIN_RELAY1,
+                digitalRead(PIN_RELAY1) ? "HIGH" : "LOW");
   Serial.printf("kWh=%.5f kVArh_ind=%.5f kVArh_cap=%.5f kVArh_tanpaAPFC=%.5f penalti=Rp%.0f\n", s.e.kwh,
                 s.e.kvarh_ind, s.e.kvarh_cap, s.e.kvarh_load, penaltyRp(s.e));
   for (int k = 0; k < NUM_STEPS; k++)

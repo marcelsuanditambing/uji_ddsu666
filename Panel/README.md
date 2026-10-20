@@ -1,4 +1,4 @@
-# APFC Panel — Firmware ESP32 v1.2.0
+# APFC Panel — Firmware ESP32 v1.2.1
 
 Firmware panel IoT Automatic Power Factor Correction (Fase 1) — Tim Aku Anak Sehat.
 Spesifikasi lengkap: *Technical Design Book* TDB-APFC-01, Bab 7.
@@ -21,6 +21,10 @@ mosquitto.conf      contoh konfigurasi broker di laptop
 ```
 
 Kode sudah dikompilasi tanpa error dan tanpa peringatan pada paket ESP32 **3.0.7** (flash 79 %) dan **2.0.17** (flash 36 %).
+
+**Perubahan v1.2.1**
+- Pin relay K1 (IO32) kini **open-drain** (`RELAY_OPEN_DRAIN 1`): saat tidak diperintah, pin dilepas sehingga tidak ada arus ke optocoupler → relay pasti diam dan beban K1 (kontak NC) MENYALA, walaupun VCC modul relay 5 V. Relay hanya bekerja setelah "Matikan beban" / `beban off`.
+- `status` menampilkan keadaan relay dan level pin IO32 untuk diagnosa.
 
 **Perubahan v1.2.0**
 - Bank kapasitor baru: **SSR1 = 2 µF, SSR2 = 4 µF, SSR3 = 6 µF** (`C_STEP1_UF…C_STEP3_UF` = 2.00 / 4.00 / 6.36). ESP32 memilih kombinasi 2 / 4 / 6 / 2+4 / 2+6 / 4+6 / 2+4+6 µF sesuai kebutuhan Q.

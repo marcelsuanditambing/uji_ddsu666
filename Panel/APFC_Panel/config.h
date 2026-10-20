@@ -4,7 +4,7 @@
 // =====================================================================
 #pragma once
 
-#define FW_VERSION      "1.2.0"
+#define FW_VERSION      "1.2.1"
 #define PANEL_ID        "panel01"          // prefiks topik MQTT: apfc/panel01/...
 
 // ---------------- Wi-Fi & MQTT ----------------
@@ -36,6 +36,8 @@
 
 #define SSR_ON_LEVEL    HIGH // modul SSR high-level trigger
 #define RELAY_ON_LEVEL  LOW  // modul relay aktif-LOW
+#define RELAY_OPEN_DRAIN 1   // 1 = pin relay open-drain: OFF = pin dilepas (tanpa arus) → relay pasti diam
+                             //     walau VCC modul relay 5 V. 0 = push-pull biasa (HIGH 3,3 V).
 
 // ---------------- Meter CHINT DDSU666 ----------------
 #define METER_ID        1
