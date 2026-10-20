@@ -9,9 +9,9 @@
 
 // ---------------- Wi-Fi & MQTT ----------------
 // Kosongkan WIFI_SSID ("") untuk menjalankan panel tanpa Wi-Fi (LCD + microSD + Serial tetap jalan).
-#define WIFI_SSID       ""
-#define WIFI_PASS       ""
-#define MQTT_HOST       "192.168.1.10"     // IP laptop yang menjalankan Mosquitto
+#define WIFI_SSID       "APFC-DEMO"
+#define WIFI_PASS       "12345678"
+#define MQTT_HOST       "192.168.137.1"     // IP laptop yang menjalankan Mosquitto
 #define MQTT_PORT       1883
 #define MQTT_USER       ""                 // isi bila broker memakai password
 #define MQTT_PASS       ""
