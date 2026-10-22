@@ -1,0 +1,15 @@
+2026-10-21T14:21:53,,ONLINE,data panel diterima lagi,backend
+time_server,ts_device,type,detail,source
+2026-10-21T14:21:53,,OFFLINE,tidak ada telemetry > 15 s,backend
+2026-10-21T14:21:54,,OFFLINE,panel terputus (LWT),backend
+2026-10-21T14:24:06,,ONLINE,panel terhubung ke broker,backend
+2026-10-21T14:25:34,1792567534,STEP_ON,C2 Qneed=55 Qload=65,panel
+2026-10-21T14:26:00,1792567560,STEP_OFF,C2 Qneed=44 Qload=122,panel
+2026-10-21T14:26:00,1792567560,STEP_ON,C3 Qneed=44 Qload=122,panel
+2026-10-21T14:26:14,1792567574,STEP_ON,C1 Qneed=11 Qload=125,panel
+2026-10-21T14:26:34,1792567594,STEP_OFF,semua (P < p_min),panel
+2026-10-21T15:16:08,1792570568,STEP_ON,C2 Qneed=56 Qload=66,panel
+2026-10-21T15:18:44,1792570724,STEP_OFF,C2 Qneed=44 Qload=123,panel
+2026-10-21T15:18:44,1792570724,STEP_ON,C3 Qneed=44 Qload=123,panel
+2026-10-21T15:18:58,1792570738,STEP_ON,C1 Qneed=11 Qload=126,panel
+2026-10-21T15:20:58,1792570858,STEP_OFF,semua (P < p_min),panel
