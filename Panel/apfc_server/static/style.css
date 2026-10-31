@@ -234,6 +234,22 @@ main { padding: 20px 24px 40px; max-width: 1360px; margin: 0 auto; }
 .files { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .files li { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
 .files a { color: var(--accent); font-weight: 600; text-decoration: none; }
+.files li.empty { color: var(--text-3); justify-content: flex-start; }
+/* log microSD di panel */
+.card-h .btn { text-transform: none; letter-spacing: 0; }
+.sd-cap { margin-bottom: 6px; }
+.sd-cap .bar { height: 10px; }
+.sd-cap .bar i { background: var(--accent); border-radius: 4px; }
+.sd-cap.low .bar i { background: var(--crit); }
+.sd-cap .hint { margin-top: 6px; }
+#sd-hint a { color: var(--accent); }
+.sd-files li { align-items: center; gap: 12px; }
+.sd-files .f-name { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.sd-files .f-meta { color: var(--text-3); font-size: 13px; }
+.sd-files .f-act { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.sd-files .f-size { color: var(--text-2); font-size: 13px; min-width: 64px; text-align: right; }
+.tag { font-size: 12px; font-weight: 650; padding: 2px 9px; border-radius: 999px; background: var(--good-bg); color: var(--good-ink); }
+.sd-files .btn.sm { padding: 4px 11px; }
 
 /* toast & dialog */
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px); opacity: 0; pointer-events: none;

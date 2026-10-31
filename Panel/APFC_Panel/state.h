@@ -47,6 +47,7 @@ struct Shared {
   uint8_t  failCnt = 0, okCnt = 0;
   uint32_t readErrTotal = 0;
   bool     wifiOk = false, mqttOk = false, sdOk = false, lcdOk = false;
+  uint32_t sdTotalMB = 0, sdUsedMB = 0;     // kapasitas microSD (diperbarui task log)
   int      rssi = 0;
   char     ip[16] = "-";
   bool     statusDirty = true;

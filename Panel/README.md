@@ -1,4 +1,4 @@
-# APFC Panel — Firmware ESP32 v1.2.1
+# APFC Panel — Firmware ESP32 v1.3.0
 
 Firmware panel IoT Automatic Power Factor Correction (Fase 1) — Tim Aku Anak Sehat.
 Spesifikasi lengkap: *Technical Design Book* TDB-APFC-01, Bab 7.
@@ -14,13 +14,30 @@ APFC_Panel/
 ├─ storage.h        NVS (parameter + kWh/kVArh tersimpan saat mati listrik)
 ├─ comm.h           Wi-Fi, NTP, MQTT (topik apfc/panel01/...)
 ├─ ui.h             LCD 20×4 + LED
-├─ logger.h         microSD (/log/YYYYMMDD.csv, /log/event.csv)
+├─ logger.h         microSD (/log/YYYYMMDD.csv, /log/event.csv) + hapus otomatis file tertua bila hampir penuh
+├─ web.h            web server port 80: unduh/hapus log microSD (http://<IP panel>/)
 └─ console.h        perintah lewat Serial Monitor
 platformio.ini      (opsional) bila memakai PlatformIO/VS Code
 mosquitto.conf      contoh konfigurasi broker di laptop
 ```
 
-Kode sudah dikompilasi tanpa error dan tanpa peringatan pada paket ESP32 **3.0.7** (flash 79 %) dan **2.0.17** (flash 36 %).
+Kode v1.3.0 sudah dikompilasi tanpa error dan tanpa peringatan pada paket ESP32 **3.3.5** (flash 84 %) dan **2.0.17** (flash 69 %), skema partisi bawaan.
+
+**Perubahan v1.3.0**
+- **Unduh log microSD tanpa mencabut kartu.** Panel menjalankan web server kecil (port 80):
+  buka `http://<IP panel>/` (IP terlihat di layar 3 LCD) untuk daftar file, unduh, dan hapus.
+  Dashboard (tab **Log** → *microSD di panel*) memakai fitur yang sama lewat backend.
+  Endpoint: `GET /sd/list` (JSON), `GET /sd/file?name=20261031.csv`, `POST /sd/delete?name=...`.
+  File yang sedang ditulis hari ini tidak bisa dihapus. Tanpa kata sandi: hanya untuk jaringan lokal.
+- **Hapus otomatis bila kartu hampir penuh**: tiap 10 menit panel memeriksa sisa ruang; bila kurang dari
+  `SD_MIN_FREE_MB` (100 MB), file harian **tertua** dihapus sampai cukup (event `SD_CLEAN`; `SD_FULL` bila tidak ada lagi yang bisa dihapus).
+- Akses kartu dari task log dan task web dikunci bergantian (mutex), unduhan dibaca per 2 kB sehingga pencatatan tiap 10 s tidak terganggu.
+  Daftar file dibaca dari direktori tanpa membuka tiap file; paling banyak 500 file terbaru ditampilkan (RAM ESP32 terbatas).
+- Kartu yang dicabut lalu dipasang lagi kini dikenali ulang dalam ±60 s (sebelumnya kemungkinan perlu restart).
+- Status MQTT ditambah `sd_ok`, `sd_total_mb`, `sd_used_mb`, `web`; layar 3 LCD baris 3 menampilkan sisa ruang microSD (`SD 7.4GB`).
+- Perintah Serial baru: `sd` (kapasitas + daftar file + alamat unduh). Event baru `SD_DELETE`.
+- Paket 2.x: watchdog idle core 0 dimatikan (seperti pada 3.x) — watchdog tetap menjaga task kendali di core 1.
+- Pengaturan baru di `config.h`: `SD_MIN_FREE_MB`, `SD_CHECK_MS`, `WEB_ENABLE`, `WEB_PORT`.
 
 **Perubahan v1.2.1**
 - Pin relay K1 (IO32) kini **open-drain** (`RELAY_OPEN_DRAIN 1`): saat tidak diperintah, pin dilepas sehingga tidak ada arus ke optocoupler → relay pasti diam dan beban K1 (kontak NC) MENYALA, walaupun VCC modul relay 5 V. Relay hanya bekerja setelah "Matikan beban" / `beban off`.
@@ -102,6 +119,19 @@ Gunakan Serial Monitor. Ketik `help` untuk semua perintah.
 7. **Mode otomatis**: `mode auto`. 1 TL (Q ±70 var) → ESP32 memasukkan **C2 (4 µF)**; 2 TL (Q ±145 var) → menjadi **C3 + C1 (6 + 2 µF)**; saat beban turun lagi, ESP32 **menukar** kombinasi (lepas 6+2, masukkan 4). Satu step baru per keputusan (±15 s). Pantau di LCD dan Serial.
 8. **Beban K1 (kontak NC)**: `beban off` → relay klik, beban padam; `beban on` → beban menyala lagi. Setelah reset/padam listrik, beban K1 selalu menyala.
 
+## 4a. Mengambil log microSD (v1.3.0)
+
+1. Pastikan kartu terdeteksi: Serial `sd` atau layar 3 LCD (`SD 7.4GB` = sisa ruang).
+2. **Lewat dashboard**: tab **Log** → kartu *microSD di panel* → klik nama file untuk mengunduh, **Hapus** untuk membuang file lama.
+3. **Tanpa dashboard**: sambungkan laptop/HP ke jaringan yang sama dengan panel, buka `http://<IP panel>/` (IP di layar 3 LCD).
+4. File: `YYYYMMDD.csv` (data tiap 10 s; kolom `ts_device` = waktu Unix UTC, tambah 7 jam untuk WIB; `kwh`/`kvarh_*` kumulatif)
+   dan `event.csv` (kejadian panel, satu JSON per baris).
+5. Bila sisa ruang < 100 MB, file harian tertua dihapus otomatis (dicek saat kartu terpasang lalu tiap 10 menit; file hari ini
+   dan file yang sedang diunduh tidak pernah dihapus). Ubah ambang di `SD_MIN_FREE_MB`. Satu hari ≈ 1 MB, jadi kartu 8 GB
+   baru penuh setelah bertahun-tahun; penghapusan otomatis adalah pengaman.
+6. Daftar menampilkan paling banyak 500 file terbaru (RAM ESP32 terbatas); file yang lebih lama tetap ada di kartu.
+   Makin banyak file, makin lama daftar dimuat, jadi sesekali unduh lalu hapus file lama.
+
 ## 5. Cara kerja algoritma (ringkas)
 
 - Baca meter tiap 2 s; sampel transien (√(P²+Q²) ≠ U·I) dan 2 sampel setelah switching diabaikan.
@@ -136,8 +166,8 @@ Dari 0 ke 2 TL ESP32 memasukkan 6 µF dulu, lalu 2 µF (satu step baru per keput
 | Topik | Isi |
 |---|---|
 | `apfc/panel01/telemetry` | tiap 2 s: ts, seq, v, i, p, q, s, pf, f, q_load, q_need, kwh, kwh_m, kvarh_ind, kvarh_cap, kvarh_load, steps[3], sockets[1] (1 = beban K1 menyala), mode, state, rssi |
-| `apfc/panel01/status` (retained) | state, mode, steps, sockets, meter_ok, fw, uptime, ip, c_uf, pf_target |
-| `apfc/panel01/event` | STEP_ON, STEP_OFF, MODE, LOAD, FAILSAFE, RECOVER, CMD_REJECT |
+| `apfc/panel01/status` (retained) | state, mode, steps, sockets, meter_ok, fw, uptime, ip, c_uf, pf_target, sd_ok, sd_total_mb, sd_used_mb, web (port web log; 0 = mati) |
+| `apfc/panel01/event` | STEP_ON, STEP_OFF, MODE, LOAD, FAILSAFE, RECOVER, CMD_REJECT, SD_CLEAN, SD_FULL, SD_DELETE |
 | `apfc/panel01/cmd` → `cmd/ack` | set_mode, set_step, set_socket {socket:1, on:1 = nyalakan beban / 0 = matikan}, set_param {key,value}, energy_reset |
 | `apfc/panel01/online` (retained, LWT) | "1" / "0" |
 
@@ -149,5 +179,6 @@ Dari 0 ke 2 TL ESP32 memasukkan 6 µF dulu, lalu 2 µF (satu step baru per keput
 | ESP32 restart saat relay/Wi-Fi aktif | Tambah elco 1000 µF di 5V–GND shield; cek tegangan PSU 5,0–5,2 V |
 | LCD hanya kotak-kotak | Atur kontras (trimpot), cek alamat dengan `i2c` |
 | `[SD] microSD tidak terdeteksi` | VCC modul ke **5 V**, kartu FAT32, kabel SPI pendek |
+| `http://<IP panel>/` tidak terbuka | Perangkat harus di jaringan yang sama dengan panel (mis. hotspot laptop). Dari HP di Wi-Fi lain, buka lewat dashboard (tab Log) karena backend yang meneruskan. |
 | Step tidak mau ON di manual | Tunggu jeda 10 s (juga berlaku 10 s pertama setelah panel menyala), atau keadaan bukan MANUAL (lihat `status`) |
 | Nilai `config.h` tidak berubah setelah upload | Parameter yang pernah diubah dengan `set` tersimpan di NVS dan menimpa `config.h`. Ketik `params` untuk melihat, `factory` untuk kembali ke `config.h`. |

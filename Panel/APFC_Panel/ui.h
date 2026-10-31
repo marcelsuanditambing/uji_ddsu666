@@ -79,7 +79,12 @@ void drawPage(const Shared& s, int page) {
     if (s.wifiOk) lcdLine(0, "WiFi %ddBm MQTT %s", s.rssi, s.mqttOk ? "OK" : "--");
     else lcdLine(0, "WiFi --  MQTT --");
     lcdLine(1, "IP %s", s.ip);
-    lcdLine(2, "Meter %s #%lu", s.meterOk ? "OK" : "--", (unsigned long)(s.seq % 100000));
+    char sd[12];
+    uint32_t freeMB = s.sdTotalMB - s.sdUsedMB;
+    if (!s.sdOk) strlcpy(sd, "--", sizeof(sd));
+    else if (freeMB >= 1024) snprintf(sd, sizeof(sd), "%.1fGB", freeMB / 1024.0f);
+    else snprintf(sd, sizeof(sd), "%luMB", (unsigned long)freeMB);
+    lcdLine(2, "Meter %s  SD %s", s.meterOk ? "OK" : "--", sd);     // SD = sisa ruang microSD
     uint32_t up = millis() / 1000;
     lcdLine(3, "Up %02lu:%02lu:%02lu v%s", (unsigned long)(up / 3600), (unsigned long)(up / 60 % 60),
             (unsigned long)(up % 60), FW_VERSION);

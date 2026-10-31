@@ -4,6 +4,7 @@ Tim Aku Anak Sehat · DeepTech for Smart-X Hackathon 2026
 
 Alur: ESP32 → MQTT (Mosquitto) → backend ini → SQLite + CSV harian → browser (SSE)
       browser → POST /api/cmd → MQTT apfc/panel01/cmd → ESP32 → cmd/ack → browser
+      browser → /api/sd/... → backend → HTTP http://<IP panel>/sd/... (log microSD, firmware ≥ 1.3.0)
 
 Jalankan:  python app.py            (lihat python app.py --help)
 Lalu buka: http://localhost:5000    (atau http://<IP laptop>:5000 dari HP)
@@ -18,6 +19,9 @@ import socket
 import sqlite3
 import threading
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 import uuid
 from datetime import datetime
 
@@ -38,6 +42,8 @@ ap.add_argument("--tariff", type=float, default=1114.74, help="Rp/kVArh (asumsi)
 ap.add_argument("--scale", type=float, default=1000.0, help="skala tampilan setara industri")
 ap.add_argument("--t-reconnect", type=int, default=10, help="detik jeda sambung ulang step (sama dengan firmware)")
 ap.add_argument("--data", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "data"))
+ap.add_argument("--panel-http", default=os.environ.get("APFC_PANEL_HTTP", ""),
+                help="alamat web panel untuk log microSD, mis. 192.168.137.221 (kosong = otomatis dari status panel)")
 CFG = ap.parse_args()
 
 BASE = f"apfc/{CFG.panel}/"
@@ -384,6 +390,104 @@ def api_csv_get(name):
     if not CSV_RE.match(name):
         abort(404)
     return send_from_directory(CFG.data, name, as_attachment=True)
+
+
+# ----------------------------------------------------------------------------- log microSD di panel
+# Backend menjadi perantara ke web server panel (firmware ≥ 1.3.0), sehingga HP/laptop yang membuka dashboard
+# tidak perlu satu jaringan langsung dengan panel (panel biasanya di hotspot laptop 192.168.137.x).
+SD_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]{1,19}\.csv$")
+LAN = urllib.request.build_opener(urllib.request.ProxyHandler({}))      # tanpa proxy: panel ada di jaringan lokal
+
+
+def panel_http_base():
+    """(alamat web panel, alasan bila tidak ada)."""
+    if CFG.panel_http:
+        h = CFG.panel_http.strip().rstrip("/")
+        return (h if h.startswith("http") else "http://" + h), None
+    with state_lock:
+        st = state["status"] or {}
+    ip, port = st.get("ip"), st.get("web")
+    if not st:
+        return None, "status panel belum diterima (panel offline?)"
+    if port is None:
+        return None, f"firmware panel {st.get('fw', '?')} belum punya fitur unduh microSD (perlu v1.3.0 atau lebih baru)"
+    if not port:
+        return None, "web server panel dimatikan (WEB_ENABLE 0) atau panel tanpa Wi-Fi"
+    if not ip or ip == "-":
+        return None, "panel belum tersambung Wi-Fi"
+    return f"http://{ip}" + ("" if int(port) == 80 else f":{port}"), None
+
+
+def panel_error(e, base):
+    """Ubah galat HTTP/jaringan dari panel menjadi (dict, kode)."""
+    if isinstance(e, urllib.error.HTTPError):
+        try:
+            d = json.loads(e.read().decode("utf-8", "replace"))
+        except ValueError:
+            d = {"ok": 0, "msg": f"panel menjawab HTTP {e.code}"}
+        d["panel_url"] = base
+        return d, e.code
+    reason = getattr(e, "reason", e)
+    return {"ok": 0, "msg": f"panel tidak dapat dihubungi di {base} ({reason})", "panel_url": base}, 502
+
+
+@app.get("/api/sd/list")
+def api_sd_list():
+    base, why = panel_http_base()
+    if not base:
+        return jsonify({"ok": 0, "msg": why}), 503
+    try:
+        with LAN.open(base + "/sd/list", timeout=30) as r:
+            d = json.loads(r.read().decode("utf-8"))
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        d, code = panel_error(e, base)
+        return jsonify(d), code
+    d["panel_url"] = base
+    return jsonify(d)
+
+
+@app.get("/api/sd/file/<name>")
+def api_sd_file(name):
+    if not SD_NAME_RE.match(name):
+        abort(404)
+    base, why = panel_http_base()
+    if not base:
+        return jsonify({"ok": 0, "msg": why}), 503
+    try:
+        r = LAN.open(f"{base}/sd/file?name={urllib.parse.quote(name)}", timeout=30)
+    except (urllib.error.URLError, OSError) as e:
+        d, code = panel_error(e, base)
+        return jsonify(d), code
+
+    def gen():
+        with r:
+            while True:
+                chunk = r.read(16384)
+                if not chunk:
+                    break
+                yield chunk
+
+    headers = {"Content-Disposition": f'attachment; filename="{CFG.panel}_microSD_{name}"', "Cache-Control": "no-store"}
+    if r.headers.get("Content-Length"):
+        headers["Content-Length"] = r.headers["Content-Length"]
+    return Response(gen(), mimetype="text/csv", headers=headers)
+
+
+@app.post("/api/sd/delete/<name>")
+def api_sd_delete(name):
+    if not SD_NAME_RE.match(name):
+        abort(404)
+    base, why = panel_http_base()
+    if not base:
+        return jsonify({"ok": 0, "msg": why}), 503
+    req = urllib.request.Request(f"{base}/sd/delete?name={urllib.parse.quote(name)}", data=b"", method="POST")
+    try:
+        with LAN.open(req, timeout=20) as r:
+            d = json.loads(r.read().decode("utf-8"))
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        d, code = panel_error(e, base)
+        return jsonify(d), code
+    return jsonify(d)
 
 
 ALLOWED = {

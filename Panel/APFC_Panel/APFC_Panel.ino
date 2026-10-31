@@ -10,7 +10,8 @@
  *  semua step OFF dan jeda sambung ulang 10 s.
  *  Core 0 : taskComm   (prio 2)         — Wi-Fi, NTP, MQTT
  *           taskUI     (1 s,   prio 1)  — LCD 20x4, LED
- *           taskLog    (10 s,  prio 1)  — microSD
+ *           taskLog    (10 s,  prio 1)  — microSD (+ hapus otomatis file tertua bila kartu hampir penuh)
+ *           taskWeb    (prio 1)         — web server port 80: unduh/hapus log microSD (http://<IP panel>/)
  *  loop() : konsol Serial (115200)
  *
  *  Library (Arduino Library Manager):
@@ -31,6 +32,7 @@
 #include "comm.h"
 #include "ui.h"
 #include "logger.h"
+#include "web.h"
 #include "console.h"
 
 #define WDT_TIMEOUT_MS 10000
@@ -41,6 +43,9 @@ void wdtSetup() {
   if (esp_task_wdt_reconfigure(&cfg) != ESP_OK) esp_task_wdt_init(&cfg);
 #else
   esp_task_wdt_init(WDT_TIMEOUT_MS / 1000, true);
+  // Core 0 menjalankan Wi-Fi, LCD, microSD dan web; memindai kartu berisi banyak file bisa makan > 10 s.
+  // Yang dijaga watchdog cukup task kendali (core 1), sama seperti pada paket 3.x (idle_core_mask = 0).
+  disableCore0WDT();
 #endif
 }
 
@@ -99,6 +104,7 @@ void setup() {
                 G.sock[0] ? "MENYALA" : "PADAM");
 
   gMutex = xSemaphoreCreateMutex();
+  gSdMutex = xSemaphoreCreateMutex();
   gCmdQ = xQueueCreate(8, sizeof(Command));
   gOutQ = xQueueCreate(12, sizeof(OutMsg));
   gLogQ = xQueueCreate(12, sizeof(OutMsg));
@@ -112,6 +118,7 @@ void setup() {
   xTaskCreatePinnedToCore(taskComm, "comm", 8192, nullptr, 2, nullptr, 0);
   xTaskCreatePinnedToCore(taskUI, "ui", 4096, nullptr, 1, nullptr, 0);
   xTaskCreatePinnedToCore(taskLog, "log", 6144, nullptr, 1, nullptr, 0);
+  if (WEB_ENABLE && strlen(WIFI_SSID) > 0) xTaskCreatePinnedToCore(taskWeb, "web", 8192, nullptr, 1, nullptr, 0);
   Serial.println("Ketik 'help' untuk daftar perintah.");
 }
 

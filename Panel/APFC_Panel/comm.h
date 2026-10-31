@@ -92,6 +92,10 @@ void buildStatus(char* out, size_t n) {
   JsonArray c = d["c_uf"].to<JsonArray>();
   for (int k = 0; k < NUM_STEPS; k++) c.add(P.c_uf[k]);
   d["pf_target"] = P.pf_target;
+  d["sd_ok"] = s.sdOk ? 1 : 0;
+  d["sd_total_mb"] = s.sdTotalMB;
+  d["sd_used_mb"] = s.sdUsedMB;
+  d["web"] = (WEB_ENABLE && strlen(WIFI_SSID) > 0) ? WEB_PORT : 0;   // port web log microSD (0 = mati)
   serializeJson(d, out, n);
 }
 

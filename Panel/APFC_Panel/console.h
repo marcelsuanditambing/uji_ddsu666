@@ -14,6 +14,7 @@ void printHelp() {
       "params                 tampilkan parameter\n"
       "set <kunci> <nilai>    ubah parameter, mis. set c3 4.1 | set pf_target 0.95\n"
       "energy reset           nolkan penghitung kWh/kVArh\n"
+      "sd                     status microSD dan daftar file log (unduh: http://<IP panel>/)\n"
       "raw on|off             tampilkan byte Modbus mentah (diagnosa RS485)\n"
       "i2c                    pindai alamat I2C (cek LCD)\n"
       "factory                hapus parameter & energi tersimpan, lalu restart\n"
@@ -24,6 +25,29 @@ void printParams() {
   Serial.printf("pf_target=%.3f hyst=%.2f lead_w=%.2f t_reconnect=%u n_avg=%u n_skip=%u p_min=%.1f\n", P.pf_target,
                 P.hyst, P.lead_w, P.t_reconnect, P.n_avg, P.n_skip, P.p_min);
   Serial.printf("c1=%.2f c2=%.2f c3=%.2f uF  tariff=%.2f scale=%.0f\n", P.c_uf[0], P.c_uf[1], P.c_uf[2], P.tariff, P.scale);
+}
+
+void printSd() {
+  Shared s;
+  { Lock l; s = G; }
+  if (!s.sdOk) { Serial.println("microSD tidak terpasang (dicoba lagi tiap 60 s)"); return; }
+  std::vector<SdEntry> files;
+  uint32_t count = 0;
+  char p[32];
+  sdTodayPath(p, sizeof(p));
+  {
+    SdLock k;
+    sdStatsLocked();
+    sdListLocked(files, count, 40);                  // cukup 40 file terbaru untuk Serial Monitor
+  }
+  { Lock l; s.sdTotalMB = G.sdTotalMB; s.sdUsedMB = G.sdUsedMB; }
+  Serial.printf("microSD: terpakai %lu MB dari %lu MB, sisa %lu MB (hapus otomatis bila sisa < %d MB)\n",
+                (unsigned long)s.sdUsedMB, (unsigned long)s.sdTotalMB, (unsigned long)(s.sdTotalMB - s.sdUsedMB),
+                SD_MIN_FREE_MB);
+  Serial.printf("ditulis sekarang: %s\n", p);
+  for (const SdEntry& e : files) Serial.printf("  %-14s %9.1f kB\n", e.name, e.size / 1024.0f);
+  if (count > files.size()) Serial.printf("  ... dan %lu file lebih lama\n", (unsigned long)(count - files.size()));
+  if (s.wifiOk && WEB_ENABLE) Serial.printf("unduh lewat browser: http://%s/\n", s.ip);
 }
 
 void printStatus() {
@@ -84,6 +108,7 @@ void handleLine(String line) {
     if (!b[0] || !c3[0]) { Serial.println("pakai: set <kunci> <nilai>"); return; }
     c.type = C_SET; strlcpy(c.key, b, sizeof(c.key)); c.val = atof(c3); queueCmd(c);
   } else if (!strcmp(a, "energy") && !strcmp(b, "reset")) { c.type = C_ENERGY_RESET; queueCmd(c); }
+  else if (!strcmp(a, "sd")) printSd();
   else if (!strcmp(a, "i2c")) i2cScan();
   else if (!strcmp(a, "factory")) { nvsFactoryReset(); Serial.println("NVS dihapus, restart..."); delay(300); ESP.restart(); }
   else if (!strcmp(a, "restart")) ESP.restart();

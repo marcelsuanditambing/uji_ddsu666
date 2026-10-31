@@ -7,14 +7,23 @@ energi kumulatif, perintah + ack). Untuk mengembangkan dan menguji dashboard tan
 
 Beban di MCB berganti otomatis tiap ~40 s: kosong → 1 TL → 2 TL → 1 TL → ...
 Beban K1 (kontak NC, bawaan menyala, setara 1 TL) bisa dimatikan/dinyalakan dari dashboard.
+microSD tiruan (firmware 1.3.0): web http://127.0.0.1:8081/ untuk menguji unduh/hapus log di tab Log
+(file contoh dibuat di folder sementara; matikan dengan --sd-port 0).
 JANGAN dijalankan bersamaan dengan panel asli pada PANEL_ID yang sama.
 """
 import argparse
 import itertools
 import json
 import math
+import os
 import random
+import re
+import tempfile
+import threading
 import time
+from datetime import datetime, timedelta
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 
 import paho.mqtt.client as mqtt
 
@@ -26,12 +35,13 @@ ap.add_argument("--c", default="2,4,6.36", help="kapasitansi efektif step C1,C2,
 ap.add_argument("--k1", default="32,72.6", help="P,Q beban K1 pada 225 V (W,var)")
 ap.add_argument("--phase", type=float, default=40.0, help="detik per fase beban")
 ap.add_argument("--fast", action="store_true", help="jeda keputusan dipercepat (uji)")
+ap.add_argument("--sd-port", type=int, default=8081, help="port web microSD tiruan (0 = mati)")
 A = ap.parse_args()
 
 BASE = f"apfc/{A.panel}/"
 P = {"pf_target": 0.95, "hyst": 0.20, "lead_w": 1.2, "t_reconnect": 10, "n_avg": 5, "n_skip": 2, "p_min": 10.0,
      "c": [float(x) for x in A.c.split(",")], "tariff": 1114.74, "scale": 1000.0}
-FW = "sim-1.2.0"
+FW = "sim-1.3.0"
 
 # beban (pada 225 V): TL 18 W + ballast → P 32 W, Q 72.6 var ; kompresor kecil (ilustratif)
 TL = (32.0, 72.6)
@@ -188,10 +198,134 @@ def on_message(cli, ud, msg):
         ack(cli, cid, False, "perintah tidak dikenal")
 
 
+# ----------------------------------------------------------------------------- microSD tiruan
+SD_DIR = os.path.join(tempfile.gettempdir(), f"apfc_sim_sd_{A.panel}")
+SD_TOTAL_MB, SD_MIN_FREE_MB = 7580, 100
+SD_HDR = ("ts_device,uptime_s,seq,v,i,p,q,s,pf,f,q_load,q_need,kwh,kvarh_ind,kvarh_cap,kvarh_load,"
+          "s1,s2,s3,beban_k1,mode,state")
+SD_NAME = re.compile(r"^[A-Za-z0-9_.-]{1,19}\.csv$")
+sd_lock = threading.Lock()
+
+
+def sd_today():
+    return f"{datetime.now():%Y%m%d}.csv"
+
+
+def sd_used_mb():
+    return 5 + sum(os.path.getsize(os.path.join(SD_DIR, f)) for f in os.listdir(SD_DIR)) // 1048576
+
+
+def sd_seed():
+    """Buat contoh file harian 3 hari terakhir (data rumah 2200 VA sintetis) + event.csv."""
+    os.makedirs(SD_DIR, exist_ok=True)
+    for back in (3, 2, 1):
+        day = datetime.now() - timedelta(days=back)
+        path = os.path.join(SD_DIR, f"{day:%Y%m%d}.csv")
+        if os.path.exists(path):
+            continue
+        t0 = int(day.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+        kwh = 0.0
+        with open(path, "w", newline="") as fh:
+            fh.write(SD_HDR + "\n")
+            for n in range(0, 8640, 3):                     # tiap 30 s agar file contoh tidak terlalu besar
+                t = t0 + n * 10
+                h = (t - t0) / 3600
+                p = 250 + 900 * max(0, math.sin((h - 6) / 12 * math.pi)) + random.uniform(-40, 40)
+                q = 0.18 * p + random.uniform(-10, 10)
+                v = 218 + random.uniform(-3, 3)
+                s_ = math.hypot(p, q)
+                kwh += p * 30 / 3.6e6
+                fh.write(f"{t},{n * 10},{n},{v:.1f},{s_ / v:.3f},{p:.1f},{q:.1f},{s_:.1f},{p / s_:.3f},50.00,"
+                         f"{q:.1f},{q - p * 0.3287:.1f},{kwh:.5f},{kwh * 0.18:.5f},0.00000,{kwh * 0.18:.5f},0,0,0,1,AUTO,AUTO\n")
+    ev = os.path.join(SD_DIR, "event.csv")
+    if not os.path.exists(ev):
+        with open(ev, "w") as fh:
+            fh.write('{"ts":%d,"type":"MODE","detail":"AUTO"}\n' % int(time.time() - 3 * 86400))
+
+
+def sd_append(tel):
+    with sd_lock:
+        path = os.path.join(SD_DIR, sd_today())
+        new = not os.path.exists(path)
+        with open(path, "a", newline="") as fh:
+            if new:
+                fh.write(SD_HDR + "\n")
+            st = tel["steps"]
+            fh.write(f"{tel['ts']},{int(time.time() - S['t0'])},{tel['seq']},{tel['v']},{tel['i']},{tel['p']},{tel['q']},"
+                     f"{tel['s']},{tel['pf']},{tel['f']},{tel['q_load']},{tel['q_need']},{tel['kwh']:.5f},"
+                     f"{tel['kvarh_ind']:.5f},{tel['kvarh_cap']:.5f},{tel['kvarh_load']:.5f},{st[0]},{st[1]},{st[2]},"
+                     f"{tel['sockets'][0]},{tel['mode']},{tel['state']}\n")
+
+
+class SdHandler(BaseHTTPRequestHandler):
+    """Meniru web server firmware 1.3.0: /sd/list, /sd/file, /sd/delete."""
+    def log_message(self, *a):
+        pass
+
+    def _json(self, code, d):
+        b = json.dumps(d).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(b)))
+        self.end_headers()
+        self.wfile.write(b)
+
+    def do_GET(self):
+        u = urlparse(self.path)
+        name = (parse_qs(u.query).get("name") or [""])[0]
+        if u.path == "/sd/list":
+            with sd_lock:
+                files = sorted(({"name": f, "size": os.path.getsize(os.path.join(SD_DIR, f))}
+                                for f in os.listdir(SD_DIR) if SD_NAME.match(f)), key=lambda x: x["name"], reverse=True)
+                used = sd_used_mb()
+            self._json(200, {"ok": 1, "panel": A.panel, "fw": FW, "today": sd_today(), "total_mb": SD_TOTAL_MB,
+                             "used_mb": used, "free_mb": SD_TOTAL_MB - used, "min_free_mb": SD_MIN_FREE_MB,
+                             "count": len(files), "files": files[:500]})   # firmware: maks. 500 file terbaru
+        elif u.path == "/sd/file":
+            path = os.path.join(SD_DIR, name)
+            if not SD_NAME.match(name) or not os.path.exists(path):
+                return self._json(404, {"ok": 0, "msg": "file tidak ditemukan"})
+            with sd_lock, open(path, "rb") as fh:
+                data = fh.read()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/csv; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="{name}"')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+        elif u.path == "/":
+            self._json(200, {"ok": 1, "msg": "simulator: halaman HTML hanya ada di firmware asli"})
+        else:
+            self._json(404, {"ok": 0, "msg": "alamat tidak dikenal"})
+
+    def do_POST(self):
+        u = urlparse(self.path)
+        name = (parse_qs(u.query).get("name") or [""])[0]
+        if u.path != "/sd/delete":
+            return self._json(404, {"ok": 0, "msg": "alamat tidak dikenal"})
+        if not SD_NAME.match(name):
+            return self._json(400, {"ok": 0, "msg": "nama file tidak valid"})
+        if name == sd_today():
+            return self._json(409, {"ok": 0, "msg": "file hari ini sedang ditulis, tidak boleh dihapus"})
+        path = os.path.join(SD_DIR, name)
+        with sd_lock:
+            if not os.path.exists(path):
+                return self._json(404, {"ok": 0, "msg": "file tidak ditemukan atau gagal dihapus"})
+            os.remove(path)
+        self._json(200, {"ok": 1, "msg": f"{name} dihapus"})
+        if SD_CLI:
+            event(SD_CLI, "SD_DELETE", f"{name} dihapus lewat web")
+
+
+SD_CLI = None
+
+
 def status(cli):
     d = {"state": S["state"], "mode": S["mode"], "steps": S["steps"], "sockets": S["socks"], "meter_ok": 1,
-         "fw": FW, "uptime": int(time.time() - S["t0"]), "ip": "192.168.137.50",
-         "c_uf": P["c"], "pf_target": P["pf_target"]}
+         "fw": FW, "uptime": int(time.time() - S["t0"]), "ip": "127.0.0.1" if A.sd_port else "192.168.137.50",
+         "c_uf": P["c"], "pf_target": P["pf_target"],
+         "sd_ok": 1 if A.sd_port else 0, "sd_total_mb": SD_TOTAL_MB if A.sd_port else 0,
+         "sd_used_mb": sd_used_mb() if A.sd_port else 0, "web": A.sd_port}
     cli.publish(BASE + "status", json.dumps(d), qos=1, retain=True)
     S["dirty"] = False
 
@@ -208,7 +342,15 @@ def main():
     cli.publish(BASE + "online", "1", qos=1, retain=True)
     cli.loop_start()
     print(f"Simulator panel '{A.panel}' → {A.host}:{A.port}, C = {P['c']} µF. Ctrl+C untuk berhenti.")
+    global SD_CLI
+    if A.sd_port:
+        sd_seed()
+        SD_CLI = cli
+        srv = ThreadingHTTPServer(("127.0.0.1", A.sd_port), SdHandler)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        print(f"microSD tiruan: http://127.0.0.1:{A.sd_port}/sd/list  (folder {SD_DIR})")
     last_status = 0
+    last_sd = 0
     try:
         while True:
             now = time.time()
@@ -253,6 +395,9 @@ def main():
                    "steps": S["steps"], "sockets": S["socks"], "mode": S["mode"], "state": S["state"],
                    "rssi": -55 + random.randint(-3, 3)}
             cli.publish(BASE + "telemetry", json.dumps(tel))
+            if A.sd_port and now - last_sd >= 10:
+                last_sd = now
+                sd_append(tel)
             if S["dirty"] or now - last_status > 60:
                 status(cli)
                 last_status = now

@@ -4,7 +4,7 @@
 // =====================================================================
 #pragma once
 
-#define FW_VERSION      "1.2.1"
+#define FW_VERSION      "1.3.0"
 #define PANEL_ID        "panel01"          // prefiks topik MQTT: apfc/panel01/...
 
 // ---------------- Wi-Fi & MQTT ----------------
@@ -73,6 +73,10 @@
 #define LCD_PAGE2_MS    10000   // layar 2: energi, rasio kVArh/kWh, penalti (10 s)
 #define LCD_PAGE3_MS    10000   // layar 3: Wi-Fi, MQTT, meter, uptime (10 s)
 #define LOG_PERIOD_MS   10000   // tulis microSD tiap 10 s
+#define SD_MIN_FREE_MB  100     // sisa ruang minimum microSD; di bawahnya file harian TERTUA dihapus otomatis
+#define SD_CHECK_MS     600000UL// periksa sisa ruang microSD tiap 10 menit
+#define WEB_ENABLE      1       // 1 = web server di panel: buka http://<IP panel>/ untuk unduh/hapus log microSD
+#define WEB_PORT        80
 #define NVS_SAVE_MS     60000   // simpan energi ke NVS tiap 1 menit (panel bisa mati mendadak lewat E-stop)
 #define STATUS_PERIOD_MS 60000  // publikasi status retained tiap 60 s
 #define SERIAL_BAUD     115200

@@ -14,6 +14,8 @@ const S = {
 const nf = (x, d = 1) => (x == null || isNaN(x)) ? "—" :
   Number(x).toLocaleString("id-ID", { minimumFractionDigits: d, maximumFractionDigits: d });
 const rp = (x) => (x == null || isNaN(x)) ? "—" : "Rp" + Math.round(x).toLocaleString("id-ID");
+const esc = (x) => String(x == null ? "" : x).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const mb = (x) => x == null ? "—" : x >= 1024 ? `${nf(x / 1024, 1)} GB` : `${nf(x, 0)} MB`;
 const pad = (n) => String(n).padStart(2, "0");
 const hms = (t) => { const d = new Date(t * 1000); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
 const hm = (t) => { const d = new Date(t * 1000); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
@@ -35,7 +37,7 @@ $$(".tab").forEach((b) => b.addEventListener("click", () => {
   $$(".pane").forEach((p) => p.classList.toggle("active", p.id === "pane-" + b.dataset.tab));
   if (b.dataset.tab === "tren") loadHistory();
   if (b.dataset.tab === "energi") loadEnergy();
-  if (b.dataset.tab === "log") { loadEvents(); loadCsv(); }
+  if (b.dataset.tab === "log") { loadEvents(); loadCsv(); loadSd(); }
   if (b.dataset.tab === "kontrol") renderCtl();
   history.replaceState(null, "", "#" + b.dataset.tab);
 }));
@@ -171,6 +173,7 @@ function renderPanelKv() {
     ["Meter DDSU666", s.meter_ok === 0 ? "✕ tidak terbaca" : "✓ OK"],
     ["Wi-Fi", t.rssi ? `${t.rssi} dBm` : "—"],
     ["IP panel", s.ip || "—"],
+    ["microSD", s.sd_ok == null ? "—" : s.sd_ok ? `✓ sisa ${mb(s.sd_total_mb - s.sd_used_mb)}` : "✕ tidak terpasang"],
     ["Firmware", s.fw || "—"],
     ["Uptime", up != null ? dur(up) : "—"],
   ];
@@ -455,8 +458,10 @@ $("#btn-ereset").addEventListener("click", () => {
 const EV = {
   STEP_ON: ["Step ON", ""], STEP_OFF: ["Step OFF", ""], MODE: ["Mode", ""], LOAD: ["Beban K1", ""], FAILSAFE: ["⚠ Fail-safe", "alarm"],
   RECOVER: ["✓ Pulih", ""], CMD_REJECT: ["✕ Perintah ditolak", "alarm"], ONLINE: ["✓ Online", ""], OFFLINE: ["⚠ Offline", "crit"],
+  SD_CLEAN: ["microSD: hapus otomatis", "alarm"], SD_DELETE: ["microSD: file dihapus", ""], SD_FULL: ["⚠ microSD penuh", "crit"],
 };
-const GROUP = { STEP: ["STEP_ON", "STEP_OFF"], LOAD: ["LOAD"], MODE: ["MODE"], ALARM: ["FAILSAFE", "RECOVER"], CMD_REJECT: ["CMD_REJECT"], NET: ["ONLINE", "OFFLINE"] };
+const GROUP = { STEP: ["STEP_ON", "STEP_OFF"], LOAD: ["LOAD"], MODE: ["MODE"], ALARM: ["FAILSAFE", "RECOVER"], CMD_REJECT: ["CMD_REJECT"], NET: ["ONLINE", "OFFLINE"],
+  SD: ["SD_CLEAN", "SD_DELETE", "SD_FULL"] };
 async function loadEvents() { S.events = await fetch("/api/events?limit=500").then((x) => x.json()); renderEvents(); }
 function renderEvents() {
   const f = S.evtFilter ? GROUP[S.evtFilter] : null;
@@ -471,6 +476,67 @@ async function loadCsv() {
   const l = await fetch("/api/csv").then((x) => x.json());
   $("#csv-list").innerHTML = l.length ? l.map((f) => `<li><a href="/api/csv/${f.name}">${f.name}</a><span class="num">${nf(f.size / 1024, 1)} kB</span></li>`).join("") : "<li>Belum ada berkas.</li>";
 }
+
+// ------------------------------------------------------------------ log microSD di panel (firmware ≥ 1.3.0)
+function sdLabel(n) {
+  const m = /^(\d{4})(\d{2})(\d{2})\.csv$/.exec(n);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  return { "event.csv": "kejadian panel (step, mode, alarm)", "no_time.csv": "data saat jam belum tersinkron (Wi-Fi belum tersambung)" }[n] || "";
+}
+async function loadSd() {
+  if (S.sdBusy) return;
+  S.sdBusy = true;
+  $("#sd-refresh").disabled = true;
+  if (!S.sd) $("#sd-list").innerHTML = `<li class="empty">Memuat daftar file dari panel…</li>`;
+  let d;
+  try { d = await fetch("/api/sd/list").then((x) => x.json()); } catch (e) { d = { ok: 0, msg: "server dashboard tidak dapat dihubungi" }; }
+  S.sd = d; S.sdBusy = false;
+  $("#sd-refresh").disabled = false;
+  renderSd();
+}
+function renderSd() {
+  const d = S.sd || {};
+  if (!d.ok) {
+    $("#sd-cap").innerHTML = "";
+    $("#sd-list").innerHTML = `<li class="empty">✕ ${esc(d.msg || "daftar file tidak tersedia")}</li>`;
+    $("#sd-hint").innerHTML = d.panel_url ? `Bisa juga dibuka langsung dari jaringan panel: <a href="${esc(d.panel_url)}/" target="_blank" rel="noopener">${esc(d.panel_url)}/</a>` : "";
+    return;
+  }
+  const pct = d.total_mb ? (d.used_mb / d.total_mb) * 100 : 0;
+  $("#sd-cap").className = "sd-cap" + (d.free_mb < d.min_free_mb * 2 ? " low" : "");
+  $("#sd-cap").innerHTML = `<div class="bar"><i style="width:${Math.min(100, Math.max(pct, d.used_mb ? 1 : 0))}%"></i></div>
+    <div class="hint">Terpakai <b>${mb(d.used_mb)}</b> dari ${mb(d.total_mb)} · sisa ${mb(d.free_mb)}. File harian tertua dihapus otomatis bila sisa kurang dari ${mb(d.min_free_mb)}.</div>`;
+  const files = d.files || [];
+  $("#sd-list").innerHTML = files.length ? files.map((f) => {
+    const today = f.name === d.today;
+    return `<li><div class="f-name"><a href="/api/sd/file/${encodeURIComponent(f.name)}" download>${esc(f.name)}</a><span class="f-meta">${esc(sdLabel(f.name))}</span></div>
+      <div class="f-act"><span class="f-size num">${f.size < 1024 ? `${f.size} B` : f.size < 1048576 ? `${nf(f.size / 1024, 1)} kB` : `${nf(f.size / 1048576, 2)} MB`}</span>
+      ${today ? `<span class="tag" title="Sedang ditulis panel, tidak bisa dihapus">sedang ditulis</span>`
+              : `<button class="btn sm danger-o" type="button" data-sd-del="${esc(f.name)}">Hapus</button>`}</div></li>`;
+  }).join("") : `<li class="empty">Belum ada file log di microSD.</li>`;
+  const total = files.reduce((a, f) => a + f.size, 0);
+  const more = d.count > files.length ? `Ditampilkan ${files.length} file terbaru dari ${d.count} (file lama tetap ada di kartu). ` : `${files.length} file · ${nf(total / 1048576, 1)} MB · `;
+  $("#sd-hint").innerHTML = `${more}firmware ${esc(d.fw || "—")} · klik nama file untuk mengunduh. ` +
+    `Halaman cadangan di panel: <a href="${esc(d.panel_url)}/" target="_blank" rel="noopener">${esc(d.panel_url)}/</a>`;
+}
+$("#sd-refresh").addEventListener("click", loadSd);
+$("#sd-list").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-sd-del]");
+  if (!b) return;
+  const name = b.dataset.sdDel, dlg = $("#dlg");
+  $("#dlg-t").textContent = `Hapus ${name} dari microSD?`;
+  $("#dlg-m").textContent = "File di kartu panel akan dihapus permanen. Unduh dulu bila datanya masih diperlukan. Data yang dicatat laptop tidak ikut terhapus.";
+  dlg.onclose = async () => {
+    if (dlg.returnValue !== "yes") return;
+    b.disabled = true;
+    let r;
+    try { r = await fetch(`/api/sd/delete/${encodeURIComponent(name)}`, { method: "POST" }).then((x) => x.json()); }
+    catch (err) { r = { ok: 0, msg: "server dashboard tidak dapat dihubungi" }; }
+    toast((r.ok ? "✓ " : "✕ ") + (r.msg || ""), r.ok ? "ok" : "no");
+    loadSd();
+  };
+  dlg.showModal();
+});
 
 // ------------------------------------------------------------------ SSE
 function applyTelemetry(t) {

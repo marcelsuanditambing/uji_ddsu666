@@ -185,15 +185,22 @@
 <section class="pane" id="pane-log">
   <div class="toolbar">
     <div class="seg" id="seg-evt">
-      <button data-v="" class="on">Semua</button><button data-v="STEP">Step</button><button data-v="LOAD">Beban</button><button data-v="MODE">Mode</button><button data-v="ALARM">Alarm</button><button data-v="CMD_REJECT">Ditolak</button><button data-v="NET">Koneksi</button>
+      <button data-v="" class="on">Semua</button><button data-v="STEP">Step</button><button data-v="LOAD">Beban</button><button data-v="MODE">Mode</button><button data-v="ALARM">Alarm</button><button data-v="CMD_REJECT">Ditolak</button><button data-v="NET">Koneksi</button><button data-v="SD">microSD</button>
     </div>
   </div>
   <div class="card">
     <div class="card-h">Kejadian <span class="card-hint">terbaru di atas</span></div>
     <div class="table-wrap"><table class="tbl" id="evt-table"></table></div>
   </div>
+  <div class="card" id="sd-card">
+    <div class="card-h"><span>microSD di panel <span class="card-hint">data tiap 10 detik, diambil langsung dari kartu di panel</span></span>
+      <button class="btn sm ghost" id="sd-refresh" type="button">Muat ulang</button></div>
+    <div class="sd-cap" id="sd-cap"></div>
+    <ul class="files sd-files" id="sd-list"><li class="empty">Buka tab ini untuk memuat daftar file.</li></ul>
+    <div class="hint" id="sd-hint"></div>
+  </div>
   <div class="card">
-    <div class="card-h">Berkas CSV harian <span class="card-hint">untuk analisis Bab 9</span></div>
+    <div class="card-h">Berkas CSV di laptop <span class="card-hint">dicatat backend ini selama dashboard berjalan</span></div>
     <ul class="files" id="csv-list"></ul>
   </div>
 </section>
