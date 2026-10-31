@@ -11,7 +11,8 @@
  *  Core 0 : taskComm   (prio 2)         — Wi-Fi, NTP, MQTT
  *           taskUI     (1 s,   prio 1)  — LCD 20x4, LED
  *           taskLog    (10 s,  prio 1)  — microSD (+ hapus otomatis file tertua bila kartu hampir penuh)
- *           taskWeb    (prio 1)         — web server port 80: unduh/hapus log microSD (http://<IP panel>/)
+ *           taskWeb    (prio 1)         — web server port 80: tagihan bulanan + unduh/hapus log microSD (http://<IP panel>/)
+ *           taskBill   (10 s,  prio 1)  — kWh & biaya PLN per bulan kalender (riwayat 12 bulan di NVS)
  *  loop() : konsol Serial (115200)
  *
  *  Library (Arduino Library Manager):
@@ -29,6 +30,7 @@
 #include "storage.h"
 #include "meter.h"
 #include "control.h"
+#include "billing.h"
 #include "comm.h"
 #include "ui.h"
 #include "logger.h"
@@ -110,6 +112,7 @@ void setup() {
   gLogQ = xQueueCreate(12, sizeof(OutMsg));
 
   nvsLoad();
+  billLoad();
   printParams();
   meterInit();
   wdtSetup();
@@ -118,6 +121,7 @@ void setup() {
   xTaskCreatePinnedToCore(taskComm, "comm", 8192, nullptr, 2, nullptr, 0);
   xTaskCreatePinnedToCore(taskUI, "ui", 4096, nullptr, 1, nullptr, 0);
   xTaskCreatePinnedToCore(taskLog, "log", 6144, nullptr, 1, nullptr, 0);
+  xTaskCreatePinnedToCore(taskBill, "bill", 4096, nullptr, 1, nullptr, 0);
   if (WEB_ENABLE && strlen(WIFI_SSID) > 0) xTaskCreatePinnedToCore(taskWeb, "web", 8192, nullptr, 1, nullptr, 0);
   Serial.println("Ketik 'help' untuk daftar perintah.");
 }

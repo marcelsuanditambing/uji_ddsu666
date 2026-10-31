@@ -40,8 +40,9 @@ A = ap.parse_args()
 
 BASE = f"apfc/{A.panel}/"
 P = {"pf_target": 0.95, "hyst": 0.20, "lead_w": 1.2, "t_reconnect": 10, "n_avg": 5, "n_skip": 2, "p_min": 10.0,
-     "c": [float(x) for x in A.c.split(",")], "tariff": 1114.74, "scale": 1000.0}
-FW = "sim-1.3.0"
+     "c": [float(x) for x in A.c.split(",")], "tariff": 1114.74, "scale": 1000.0,
+     "tarif_kwh": 1444.70, "pbjt": 8.0, "pasca": 0}
+FW = "sim-1.4.0"
 
 # beban (pada 225 V): TL 18 W + ballast → P 32 W, Q 72.6 var ; kompresor kecil (ilustratif)
 TL = (32.0, 72.6)
@@ -141,7 +142,7 @@ def ack(cli, cid, ok, msg):
 
 RANGES = {"pf_target": (0.90, 0.99), "hyst": (0.05, 0.9), "lead_w": (1.0, 5.0), "t_reconnect": (10, 60),
           "n_avg": (1, 10), "n_skip": (0, 5), "p_min": (0, 200), "c1": (0.5, 20), "c2": (0.5, 20), "c3": (0.5, 20),
-          "tariff": (1, 100000), "scale": (1, 1000)}
+          "tariff": (1, 100000), "scale": (1, 1000), "tarif_kwh": (100, 10000), "pbjt": (0, 25), "pasca": (0, 1)}
 
 
 def on_message(cli, ud, msg):
@@ -187,6 +188,8 @@ def on_message(cli, ud, msg):
             return ack(cli, cid, False, f"{key} harus {lo:g}..{hi:g}")
         if key in ("c1", "c2", "c3"):
             P["c"][int(key[1]) - 1] = val
+        elif key == "pasca":
+            P[key] = 1 if val >= 0.5 else 0
         else:
             P[key] = val
         S["dirty"] = True
@@ -257,6 +260,43 @@ def sd_append(tel):
                      f"{tel['sockets'][0]},{tel['mode']},{tel['state']}\n")
 
 
+# ---------------- tagihan bulanan tiruan (firmware 1.4.0: GET /bill, status "bill") ----------------
+# Rumah ±7,2 kWh/hari ditambah beban simulator; riwayat 3 bulan contoh (bulan tertua "belum sebulan penuh").
+HOME_KWH_DAY = 7.2
+BILL_HIST = [(-1, 214.6, 0), (-2, 198.3, 0), (-3, 61.9, 1)]
+
+
+def ym_add(y, m, k):
+    n = y * 12 + (m - 1) + k
+    return n // 12, n % 12 + 1
+
+
+def bill_cost(kwh, apply_min):
+    min_kwh = 40 * 2.2 if (apply_min and P["pasca"]) else 0.0
+    kb = max(kwh, min_kwh)
+    energi = kb * P["tarif_kwh"]
+    pbjt = energi * P["pbjt"] / 100
+    return {"energi": energi, "pbjt": pbjt, "total": energi + pbjt, "min": kwh < min_kwh}
+
+
+def bill_now():
+    now = time.time()
+    lt = time.localtime(now)
+    y, m = lt.tm_year, lt.tm_mon
+    t_from = time.mktime((y, m, 1, 0, 0, 0, 0, 0, -1))
+    ny, nm = ym_add(y, m, 1)
+    t_to = time.mktime((ny, nm, 1, 0, 0, 0, 0, 0, -1))
+    el = now - t_from
+    kwh = HOME_KWH_DAY * el / 86400 + (S["kwh_m"] - 12.34)
+    proj = kwh / el * (t_to - t_from) if el >= 86400 else None
+    hist = []
+    for k, kw, fl in BILL_HIST:
+        hy, hm = ym_add(y, m, k)
+        hist.append({"ym": hy * 100 + hm, "kwh": kw, "total": round(bill_cost(kw, not fl)["total"]), "fl": fl})
+    return {"ym": y * 100 + m, "from": int(t_from), "to": int(t_to), "start": int(t_from), "kwh": kwh, "proj": proj,
+            "hist": hist}
+
+
 class SdHandler(BaseHTTPRequestHandler):
     """Meniru web server firmware 1.3.0: /sd/list, /sd/file, /sd/delete."""
     def log_message(self, *a):
@@ -293,6 +333,17 @@ class SdHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)
+        elif u.path == "/bill":
+            b = bill_now()
+            c = bill_cost(b["kwh"], False)
+            cur = {"ym": b["ym"], "from": b["from"], "to": b["to"], "start": b["start"], "kwh": round(b["kwh"], 3),
+                   "energi": round(c["energi"]), "pbjt_rp": round(c["pbjt"]), "total": round(c["total"]), "fl": 0, "src": "meter"}
+            if b["proj"] is not None:
+                cp = bill_cost(b["proj"], True)
+                cur.update({"proj_kwh": round(b["proj"], 2), "proj_total": round(cp["total"]), "proj_min": int(cp["min"])})
+            self._json(200, {"ok": 1, "panel": A.panel, "fw": FW, "now": int(time.time()), "time_ok": 1,
+                             "tarif": P["tarif_kwh"], "pbjt": P["pbjt"], "pasca": P["pasca"], "daya_va": 2200,
+                             "min_kwh": 88.0 if P["pasca"] else 0.0, "cur": cur, "hist": b["hist"]})
         elif u.path == "/":
             self._json(200, {"ok": 1, "msg": "simulator: halaman HTML hanya ada di firmware asli"})
         else:
@@ -326,6 +377,11 @@ def status(cli):
          "c_uf": P["c"], "pf_target": P["pf_target"],
          "sd_ok": 1 if A.sd_port else 0, "sd_total_mb": SD_TOTAL_MB if A.sd_port else 0,
          "sd_used_mb": sd_used_mb() if A.sd_port else 0, "web": A.sd_port}
+    b = bill_now()
+    d["bill"] = {"ok": 1, "ym": b["ym"], "kwh": round(b["kwh"], 2), "rp": round(bill_cost(b["kwh"], False)["total"]),
+                 "fl": 0, "tarif": P["tarif_kwh"], "pbjt": P["pbjt"], "pasca": P["pasca"]}
+    if b["proj"] is not None:
+        d["bill"].update({"proj_kwh": round(b["proj"], 1), "proj_rp": round(bill_cost(b["proj"], True)["total"])})
     cli.publish(BASE + "status", json.dumps(d), qos=1, retain=True)
     S["dirty"] = False
 

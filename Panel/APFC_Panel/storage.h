@@ -23,6 +23,15 @@ void nvsLoad() {
     P.c_uf[2] = prefs.getFloat("c3", P.c_uf[2]);
   }
   P.tariff      = prefs.getFloat("tariff", P.tariff);
+  // Tarif listrik: nilai NVS hanya dipakai bila PLN_* di config.h tidak berubah sejak disimpan.
+  char bsig[32];
+  snprintf(bsig, sizeof(bsig), "%.2f/%.2f/%d", PLN_TARIF_KWH, PLN_PBJT_PCT, PLN_PASCABAYAR);
+  bool sameBill = prefs.getString("b_cfg", "") == String(bsig);
+  if (sameBill) {
+    P.tarif_kwh = prefs.getFloat("tkwh", P.tarif_kwh);
+    P.pbjt      = prefs.getFloat("pbjt", P.pbjt);
+    P.pasca     = prefs.getUChar("pasca", P.pasca);
+  }
   P.scale       = prefs.getFloat("scale", P.scale);
   G.e.kwh        = prefs.getDouble("kwh", 0);
   G.e.kvarh_ind  = prefs.getDouble("kvi", 0);
@@ -37,6 +46,14 @@ void nvsLoad() {
     prefs.putFloat("c1", P.c_uf[0]);
     prefs.putFloat("c2", P.c_uf[1]);
     prefs.putFloat("c3", P.c_uf[2]);
+    prefs.end();
+  }
+  if (!sameBill) {
+    prefs.begin("apfc", false);
+    prefs.putString("b_cfg", bsig);
+    prefs.putFloat("tkwh", P.tarif_kwh);
+    prefs.putFloat("pbjt", P.pbjt);
+    prefs.putUChar("pasca", P.pasca);
     prefs.end();
   }
 }
@@ -55,6 +72,9 @@ void nvsSaveParams() {
   prefs.putFloat("c3", P.c_uf[2]);
   prefs.putFloat("tariff", P.tariff);
   prefs.putFloat("scale", P.scale);
+  prefs.putFloat("tkwh", P.tarif_kwh);
+  prefs.putFloat("pbjt", P.pbjt);
+  prefs.putUChar("pasca", P.pasca);
   prefs.putUChar("mode", G.mode);
   prefs.end();
 }

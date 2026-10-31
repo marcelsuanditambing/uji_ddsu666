@@ -96,6 +96,24 @@ void buildStatus(char* out, size_t n) {
   d["sd_total_mb"] = s.sdTotalMB;
   d["sd_used_mb"] = s.sdUsedMB;
   d["web"] = (WEB_ENABLE && strlen(WIFI_SSID) > 0) ? WEB_PORT : 0;   // port web log microSD (0 = mati)
+  // tagihan PLN bulan berjalan (rincian + riwayat: GET http://<IP panel>/bill)
+  BillNow b;
+  BillCost bc, bp;
+  float tarif, pbjt;
+  uint8_t pasca;
+  { Lock l; b = gBillNow; bc = billCost(b.kwh, false); bp = billCost(b.projKwh, true); tarif = P.tarif_kwh; pbjt = P.pbjt; pasca = P.pasca; }
+  JsonObject bo = d["bill"].to<JsonObject>();
+  bo["ok"] = b.ok ? 1 : 0;
+  if (b.ok) {
+    bo["ym"] = b.ym;
+    bo["kwh"] = roundf(b.kwh * 100) / 100;
+    bo["rp"] = lroundf(bc.total);
+    if (b.projKwh >= 0) { bo["proj_kwh"] = roundf(b.projKwh * 10) / 10; bo["proj_rp"] = lroundf(bp.total); }
+    bo["fl"] = b.flags;
+  }
+  bo["tarif"] = tarif;
+  bo["pbjt"] = pbjt;
+  bo["pasca"] = pasca;
   serializeJson(d, out, n);
 }
 

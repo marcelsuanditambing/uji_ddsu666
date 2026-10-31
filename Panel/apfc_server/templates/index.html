@@ -31,6 +31,7 @@
 <nav class="tabs" role="tablist">
   <button role="tab" class="tab active" data-tab="ringkasan">Ringkasan</button>
   <button role="tab" class="tab" data-tab="tren">Tren</button>
+  <button role="tab" class="tab" data-tab="tagihan">Tagihan PLN</button>
   <button role="tab" class="tab" data-tab="energi">Energi &amp; Penalti</button>
   <button role="tab" class="tab" data-tab="kontrol">Kontrol</button>
   <button role="tab" class="tab" data-tab="log">Log</button>
@@ -140,6 +141,37 @@
     </div>
   </div>
   <div class="note">Tarif kelebihan kVArh <b id="e-tariff">—</b> adalah <b>asumsi</b> (TDB Bab 3). Skala ×1000 hanya mengubah satuan tampilan agar beban demo ratusan watt terbaca sebagai beban industri ratusan kilowatt; rasio kVArh/kWh tidak berubah oleh skala.</div>
+</section>
+
+<!-- ======================================================= TAGIHAN -->
+<section class="pane" id="pane-tagihan">
+  <div class="toolbar">
+    <div class="bill-title"><b id="b-month">Bulan ini</b> <span id="b-range" class="card-hint">—</span></div>
+    <button class="btn ghost" id="b-refresh" type="button">Muat ulang</button>
+  </div>
+  <div class="grid-3 money">
+    <div class="card tile"><div class="t-l">Pemakaian sampai sekarang</div><div class="t-v num" id="b-kwh">—</div><div class="t-s" id="b-kwh-s">—</div></div>
+    <div class="card tile"><div class="t-l">Biaya sampai sekarang</div><div class="t-v num" id="b-rp">—</div><div class="t-s" id="b-rp-s">—</div></div>
+    <div class="card tile acc-t"><div class="t-l">Perkiraan tagihan sebulan</div><div class="t-v num" id="b-proj">—</div><div class="t-s" id="b-proj-s">—</div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-h">Riwayat bulanan <span class="card-hint">dicatat panel, tanggal 1 s.d. akhir bulan</span></div>
+      <div class="table-wrap"><table class="tbl num" id="b-hist"></table></div>
+      <div class="hint" id="b-hint">—</div>
+    </div>
+    <div class="card">
+      <div class="card-h">Tarif listrik</div>
+      <form class="bill-set" id="b-set">
+        <label>Tarif (Rp/kWh)<input id="b-tarif" type="number" step="0.01" min="100" max="10000" required></label>
+        <label>PBJT / PPJ (%)<input id="b-pbjt" type="number" step="0.1" min="0" max="25" required></label>
+        <label>Jenis meter PLN<select id="b-pasca"><option value="0">Prabayar (token)</option><option value="1">Pascabayar</option></select></label>
+        <button class="btn" type="submit" id="b-save">Simpan ke panel</button>
+      </form>
+      <div class="hint">R-1/TR 2.200 VA: Rp1.444,70/kWh (Oktober 2026; PLN meninjau tarif tiap 3 bulan). PBJT (dulu PPJ) tergantung kota/kabupaten, misalnya Kota Bandung 8 %: lihat struk token atau rekening listrik. Pascabayar dikenai rekening minimum 40 jam nyala (88 kWh untuk 2.200 VA).</div>
+    </div>
+  </div>
+  <div class="note">Biaya = kWh × tarif + PBJT. Rumah tangga ≤ 6.600 VA tidak dikenai PPN; biaya admin bank/loket dan bea meterai tidak dihitung. kWh diambil dari register energi meter DDSU666 di panel (tetap terhitung walau laptop atau ESP32 mati), jadi angka ini mendekati kWh meter PLN bila DDSU666 dipasang di jalur utama setelah meter PLN. Golongan rumah tangga hanya ditagih kWh, tidak ditagih kVArh.</div>
 </section>
 
 <!-- ======================================================= KONTROL -->

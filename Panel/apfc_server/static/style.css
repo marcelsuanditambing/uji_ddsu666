@@ -209,6 +209,15 @@ main { padding: 20px 24px 40px; max-width: 1360px; margin: 0 auto; }
 .tile.bad-t { border-top: 4px solid var(--crit); }
 .tile.good-t { border-top: 4px solid var(--good); background: color-mix(in srgb, var(--good) 6%, var(--surface)); }
 .tile.good-t .t-v { color: var(--good-ink); }
+.tile.acc-t { border-top: 4px solid var(--accent); }
+.t-v small { font-size: 16px; font-weight: 500; color: var(--text-3); margin-left: 4px; letter-spacing: 0; }
+.bill-title { font-size: 16px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.bill-set { display: grid; gap: 10px; }
+.bill-set label { display: grid; gap: 4px; font-size: 13px; color: var(--text-2); font-weight: 600; }
+.bill-set input, .bill-set select { font: inherit; font-weight: 400; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text-1); min-width: 0; }
+.bill-set .btn { justify-self: start; }
+#b-hist td.fl { color: var(--text-3); font-size: 12.5px; text-align: left; white-space: normal; }
 .ratio { display: flex; flex-direction: column; gap: 14px; margin-top: 6px; }
 .r-row { display: grid; grid-template-columns: 100px 1fr 56px; gap: 10px; align-items: center; }
 .r-l { font-size: 13.5px; color: var(--text-2); }

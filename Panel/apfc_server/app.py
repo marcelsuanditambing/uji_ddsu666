@@ -490,6 +490,30 @@ def api_sd_delete(name):
     return jsonify(d)
 
 
+# ----------------------------------------------------------------------------- tagihan PLN bulanan
+# Dihitung panel (firmware ≥ 1.4.0) dari register kWh meter, 24 jam walau laptop mati. Backend hanya meneruskan.
+@app.get("/api/bill")
+def api_bill():
+    with state_lock:
+        st = dict(state["status"] or {})
+    sb = st.get("bill")
+    if st and sb is None and not CFG.panel_http:
+        return jsonify({"ok": 0, "msg": f"firmware panel {st.get('fw', '?')} belum punya fitur tagihan bulanan "
+                                        "(perlu v1.4.0 atau lebih baru)"}), 503
+    base, why = panel_http_base()
+    if not base:
+        return jsonify({"ok": 0, "msg": why, "status_bill": sb}), 503
+    try:
+        with LAN.open(base + "/bill", timeout=15) as r:
+            d = json.loads(r.read().decode("utf-8"))
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        d, code = panel_error(e, base)
+        d["status_bill"] = sb
+        return jsonify(d), code
+    d["panel_url"] = base
+    return jsonify(d)
+
+
 ALLOWED = {
     "set_mode": {"mode"},
     "set_step": {"step", "on"},

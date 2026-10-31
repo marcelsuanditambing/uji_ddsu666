@@ -1,4 +1,4 @@
-# APFC Panel — Firmware ESP32 v1.3.0
+# APFC Panel — Firmware ESP32 v1.4.0
 
 Firmware panel IoT Automatic Power Factor Correction (Fase 1) — Tim Aku Anak Sehat.
 Spesifikasi lengkap: *Technical Design Book* TDB-APFC-01, Bab 7.
@@ -15,13 +15,23 @@ APFC_Panel/
 ├─ comm.h           Wi-Fi, NTP, MQTT (topik apfc/panel01/...)
 ├─ ui.h             LCD 20×4 + LED
 ├─ logger.h         microSD (/log/YYYYMMDD.csv, /log/event.csv) + hapus otomatis file tertua bila hampir penuh
-├─ web.h            web server port 80: unduh/hapus log microSD (http://<IP panel>/)
+├─ billing.h        tagihan PLN bulanan: kWh tgl 1–akhir bulan, biaya (tarif + PBJT), riwayat 12 bulan di NVS
+├─ web.h            web server port 80: tagihan bulanan + unduh/hapus log microSD (http://<IP panel>/)
 └─ console.h        perintah lewat Serial Monitor
 platformio.ini      (opsional) bila memakai PlatformIO/VS Code
 mosquitto.conf      contoh konfigurasi broker di laptop
 ```
 
-Kode v1.3.0 sudah dikompilasi tanpa error dan tanpa peringatan pada paket ESP32 **3.3.5** (flash 84 %) dan **2.0.17** (flash 69 %), skema partisi bawaan.
+Kode v1.4.0 sudah dikompilasi tanpa error dan tanpa peringatan pada paket ESP32 **3.3.5** (flash 84 %) dan **2.0.17** (flash 70 %), skema partisi bawaan.
+
+**Perubahan v1.4.0**
+- **Tagihan PLN bulanan** (`billing.h`): panel menghitung kWh dari tanggal 1 pukul 00:00 WIB sampai akhir bulan
+  dan biayanya (kWh × tarif + PBJT; pascabayar dengan rekening minimum 40 jam nyala). Sumber kWh = register energi
+  meter DDSU666 (tetap terhitung walau ESP32 mati). Riwayat 12 bulan tersimpan di NVS. Lihat bagian 4b.
+- Tampil di layar 4 LCD, `http://<IP panel>/` (+ JSON `GET /bill`), tab **Tagihan PLN** di dashboard, status MQTT (`bill`),
+  perintah Serial `tagihan`. Event baru `BILL_MONTH` saat sebuah bulan ditutup.
+- Pengaturan baru di `config.h`: `PLN_TARIF_KWH`, `PLN_PBJT_PCT`, `PLN_PASCABAYAR`, `PLN_DAYA_VA`, `LCD_PAGE4_MS`;
+  bisa diubah tanpa upload: `set tarif_kwh`, `set pbjt`, `set pasca`.
 
 **Perubahan v1.3.0**
 - **Unduh log microSD tanpa mencabut kartu.** Panel menjalankan web server kecil (port 80):
@@ -84,6 +94,7 @@ Kode v1.3.0 sudah dikompilasi tanpa error dan tanpa peringatan pada paket ESP32 
 | `C_STEP1_UF … C_STEP3_UF` | Kapasitansi efektif tiap step: 2.00 / 4.00 / 6.36 µF (SSR1/SSR2/SSR3). Kalibrasi halus tanpa upload: `set c1 2.05` dst. |
 | `LOAD_K1_NC` | 1 = beban di kontak NC relay K1 (bawaan), 0 = kontak NO. |
 | `LCD_ADDR` | `0x27` (coba `0x3F` bila LCD kosong). |
+| `PLN_TARIF_KWH`, `PLN_PBJT_PCT`, `PLN_PASCABAYAR` | Tarif listrik rumah (bawaan R-1 2.200 VA Rp1.444,70/kWh, PBJT 8 %, prabayar). Lihat bagian 4b. |
 
 Pemetaan pin (sesuai Gbr M-1): RS485 RX/TX = IO16/IO17 (lewat level shifter LV3/LV4) · LCD SDA/SCL = IO21/IO22 (LV1/LV2) · SSR CH1–CH3 = **IO25, IO26, IO27** · relay IN1 (K1, kontak NC → beban demo) = IO32 · IO33 bebas · microSD CS = IO5 · IO34 cadangan.
 
@@ -132,6 +143,26 @@ Gunakan Serial Monitor. Ketik `help` untuk semua perintah.
 6. Daftar menampilkan paling banyak 500 file terbaru (RAM ESP32 terbatas); file yang lebih lama tetap ada di kartu.
    Makin banyak file, makin lama daftar dimuat, jadi sesekali unduh lalu hapus file lama.
 
+## 4b. Tagihan PLN bulanan (v1.4.0)
+
+- **Periode**: tanggal 1 pukul 00:00 WIB sampai akhir bulan. Pada pukul 00:00 tanggal 1, bulan lalu ditutup dan masuk
+  riwayat (12 bulan terakhir, tersimpan di NVS), lalu penghitungan bulan baru dimulai.
+- **kWh** = register energi meter DDSU666 sekarang − pembacaan pada awal bulan. Register meter tetap menghitung walau
+  ESP32 mati/restart, sama seperti kWh meter PLN. Bila register itu tidak terbaca, dipakai integrasi daya di ESP32
+  (ditandai "kWh dari ESP32"; energi saat panel mati tidak terhitung).
+- **Biaya** = kWh × tarif + PBJT (dulu PPJ). Pascabayar: kWh minimal 40 jam × kVA (88 kWh untuk 2.200 VA).
+  PPN tidak berlaku untuk rumah tangga ≤ 6.600 VA. Biaya admin bank/loket dan bea meterai tidak dihitung.
+- **Perkiraan sebulan** = laju pemakaian sejauh ini × lama bulan, muncul setelah data 24 jam.
+- **Jam** dari NTP: panel perlu Wi-Fi yang tersambung ke internet. Tanpa jam yang benar, pergantian bulan tertunda
+  (ditandai "batas bulan perkiraan"), tetapi kWh tidak hilang karena diambil dari register meter.
+- Bulan pertama setelah firmware dipasang ditandai "belum sebulan penuh" (dicatat sejak waktu upload).
+- Lihat di: layar 4 LCD (`Tagihan Nov 2026 *`, `*` = belum sebulan penuh), `http://<IP panel>/`, tab **Tagihan PLN**,
+  atau Serial `tagihan`. `tagihan reset` menghapus riwayat dan mulai menghitung lagi dari sekarang.
+- Ubah tarif saat PLN mengumumkan tarif triwulan baru: `set tarif_kwh 1444.70`, `set pbjt 8`, `set pasca 0` (atau dari
+  dashboard). Riwayat menyimpan biaya dengan tarif saat bulan itu ditutup.
+- Angka ini mendekati tagihan PLN bila DDSU666 dipasang di jalur utama setelah kWh meter PLN (semua beban rumah lewat
+  DDSU666). Bandingkan sesekali dengan angka di kWh meter PLN.
+
 ## 5. Cara kerja algoritma (ringkas)
 
 - Baca meter tiap 2 s; sampel transien (√(P²+Q²) ≠ U·I) dan 2 sampel setelah switching diabaikan.
@@ -166,8 +197,8 @@ Dari 0 ke 2 TL ESP32 memasukkan 6 µF dulu, lalu 2 µF (satu step baru per keput
 | Topik | Isi |
 |---|---|
 | `apfc/panel01/telemetry` | tiap 2 s: ts, seq, v, i, p, q, s, pf, f, q_load, q_need, kwh, kwh_m, kvarh_ind, kvarh_cap, kvarh_load, steps[3], sockets[1] (1 = beban K1 menyala), mode, state, rssi |
-| `apfc/panel01/status` (retained) | state, mode, steps, sockets, meter_ok, fw, uptime, ip, c_uf, pf_target, sd_ok, sd_total_mb, sd_used_mb, web (port web log; 0 = mati) |
-| `apfc/panel01/event` | STEP_ON, STEP_OFF, MODE, LOAD, FAILSAFE, RECOVER, CMD_REJECT, SD_CLEAN, SD_FULL, SD_DELETE |
+| `apfc/panel01/status` (retained) | state, mode, steps, sockets, meter_ok, fw, uptime, ip, c_uf, pf_target, sd_ok, sd_total_mb, sd_used_mb, web (port web log; 0 = mati), bill {ok, ym, kwh, rp, proj_kwh, proj_rp, fl, tarif, pbjt, pasca} |
+| `apfc/panel01/event` | STEP_ON, STEP_OFF, MODE, LOAD, FAILSAFE, RECOVER, CMD_REJECT, SD_CLEAN, SD_FULL, SD_DELETE, BILL_MONTH |
 | `apfc/panel01/cmd` → `cmd/ack` | set_mode, set_step, set_socket {socket:1, on:1 = nyalakan beban / 0 = matikan}, set_param {key,value}, energy_reset |
 | `apfc/panel01/online` (retained, LWT) | "1" / "0" |
 
@@ -180,5 +211,7 @@ Dari 0 ke 2 TL ESP32 memasukkan 6 µF dulu, lalu 2 µF (satu step baru per keput
 | LCD hanya kotak-kotak | Atur kontras (trimpot), cek alamat dengan `i2c` |
 | `[SD] microSD tidak terdeteksi` | VCC modul ke **5 V**, kartu FAT32, kabel SPI pendek |
 | `http://<IP panel>/` tidak terbuka | Perangkat harus di jaringan yang sama dengan panel (mis. hotspot laptop). Dari HP di Wi-Fi lain, buka lewat dashboard (tab Log) karena backend yang meneruskan. |
+| Tagihan: "Jam belum sinkron" | Panel butuh Wi-Fi yang tersambung internet untuk NTP. Hotspot laptop harus membagikan internet, atau pakai Wi-Fi rumah. |
+| Tagihan beda jauh dari meter PLN | Pastikan semua beban rumah lewat DDSU666; cek tarif/PBJT (`tagihan`); bulan pertama memang belum sebulan penuh. |
 | Step tidak mau ON di manual | Tunggu jeda 10 s (juga berlaku 10 s pertama setelah panel menyala), atau keadaan bukan MANUAL (lihat `status`) |
 | Nilai `config.h` tidak berubah setelah upload | Parameter yang pernah diubah dengan `set` tersimpan di NVS dan menimpa `config.h`. Ketik `params` untuk melihat, `factory` untuk kembali ke `config.h`. |

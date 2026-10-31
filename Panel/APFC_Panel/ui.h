@@ -37,6 +37,25 @@ void stepsText(const Shared& s, char* out) {   // "C1# C2- C3#"
   for (int k = 0; k < NUM_STEPS; k++) p += sprintf(p, "%sC%d%c", k ? " " : "", k + 1, s.step[k] ? '#' : '-');
 }
 
+// Layar 4: tagihan PLN bulan ini
+void drawBillPage(const BillNow& b, const BillCost& c, const BillCost& cp) {
+  char t[24];
+  if (!b.ok) {
+    lcdLine(0, "Tagihan PLN");
+    lcdLine(1, time(nullptr) < 1700000000 ? "Jam belum sinkron" : "Menunggu meter...");
+    lcdLine(2, time(nullptr) < 1700000000 ? "Perlu Wi-Fi+internet" : "");
+    lcdLine(3, "");
+    return;
+  }
+  billYmText(t, sizeof(t), b.ym);
+  lcdLine(0, "Tagihan %s%s", t, b.flags & BF_PARTIAL ? " *" : "");      // * = belum sebulan penuh
+  lcdLine(1, "Pakai %10.2f kWh", b.kwh);
+  fmtRp(t, sizeof(t), c.total);
+  lcdLine(2, "Biaya Rp%12s", t);
+  if (b.projKwh >= 0) { fmtRp(t, sizeof(t), cp.total); lcdLine(3, "Perk. Rp%12s", t); }
+  else lcdLine(3, "Perk. tunggu 24 jam");
+}
+
 void drawPage(const Shared& s, int page) {
   char st[24];
   stepsText(s, st);
@@ -103,14 +122,19 @@ void taskUI(void*) {
   bool led = false;
   for (;;) {
     Shared s;
-    { Lock l; s = G; }
+    BillNow b;
+    BillCost bc, bp;
+    { Lock l; s = G; b = gBillNow; bc = billCost(b.kwh, false); bp = billCost(b.projKwh, true); }
     if (!ok && millis() - lastRetry > 10000) {
       lastRetry = millis();
       if (i2cPresent(LCD_ADDR)) { ok = true; lcd.init(); lcd.backlight(); lcd.clear(); Lock l; G.lcdOk = true; }
     }
-    static const uint32_t PAGE_MS[3] = {LCD_PAGE1_MS, LCD_PAGE2_MS, LCD_PAGE3_MS};
-    if (millis() - pageT >= PAGE_MS[page]) { pageT = millis(); page = (page + 1) % 3; }
-    if (ok) drawPage(s, page);
+    static const uint32_t PAGE_MS[4] = {LCD_PAGE1_MS, LCD_PAGE2_MS, LCD_PAGE3_MS, LCD_PAGE4_MS};
+    if (millis() - pageT >= PAGE_MS[page]) { pageT = millis(); page = (page + 1) % 4; }
+    if (ok) {
+      if (page == 3 && (s.state == ST_AUTO || s.state == ST_MANUAL)) drawBillPage(b, bc, bp);
+      else drawPage(s, page);
+    }
 
     // LED: kedip cepat = fail-safe, nyala tetap = MQTT terhubung, kedip lambat = lainnya
     if (s.state == ST_FAILSAFE) {

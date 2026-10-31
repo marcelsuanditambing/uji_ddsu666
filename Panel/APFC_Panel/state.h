@@ -26,6 +26,9 @@ struct Params {
   float    c_uf[NUM_STEPS] = {C_STEP1_UF, C_STEP2_UF, C_STEP3_UF};
   float    tariff = DEF_TARIFF;
   float    scale = DEF_SCALE;
+  float    tarif_kwh = PLN_TARIF_KWH;   // Rp/kWh (tagihan bulanan)
+  float    pbjt = PLN_PBJT_PCT;         // % PBJT/PPJ
+  uint8_t  pasca = PLN_PASCABAYAR;      // 1 = pascabayar
 };
 
 struct Energy {

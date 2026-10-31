@@ -37,6 +37,7 @@ $$(".tab").forEach((b) => b.addEventListener("click", () => {
   $$(".pane").forEach((p) => p.classList.toggle("active", p.id === "pane-" + b.dataset.tab));
   if (b.dataset.tab === "tren") loadHistory();
   if (b.dataset.tab === "energi") loadEnergy();
+  if (b.dataset.tab === "tagihan") loadBill();
   if (b.dataset.tab === "log") { loadEvents(); loadCsv(); loadSd(); }
   if (b.dataset.tab === "kontrol") renderCtl();
   history.replaceState(null, "", "#" + b.dataset.tab);
@@ -174,6 +175,7 @@ function renderPanelKv() {
     ["Wi-Fi", t.rssi ? `${t.rssi} dBm` : "—"],
     ["IP panel", s.ip || "—"],
     ["microSD", s.sd_ok == null ? "—" : s.sd_ok ? `✓ sisa ${mb(s.sd_total_mb - s.sd_used_mb)}` : "✕ tidak terpasang"],
+    ["Tagihan bulan ini", s.bill && s.bill.ok ? `${nf(s.bill.kwh, 1)} kWh · ${rp(s.bill.rp)}` : "—"],
     ["Firmware", s.fw || "—"],
     ["Uptime", up != null ? dur(up) : "—"],
   ];
@@ -459,6 +461,7 @@ const EV = {
   STEP_ON: ["Step ON", ""], STEP_OFF: ["Step OFF", ""], MODE: ["Mode", ""], LOAD: ["Beban K1", ""], FAILSAFE: ["⚠ Fail-safe", "alarm"],
   RECOVER: ["✓ Pulih", ""], CMD_REJECT: ["✕ Perintah ditolak", "alarm"], ONLINE: ["✓ Online", ""], OFFLINE: ["⚠ Offline", "crit"],
   SD_CLEAN: ["microSD: hapus otomatis", "alarm"], SD_DELETE: ["microSD: file dihapus", ""], SD_FULL: ["⚠ microSD penuh", "crit"],
+  BILL_MONTH: ["Tagihan bulan ditutup", ""],
 };
 const GROUP = { STEP: ["STEP_ON", "STEP_OFF"], LOAD: ["LOAD"], MODE: ["MODE"], ALARM: ["FAILSAFE", "RECOVER"], CMD_REJECT: ["CMD_REJECT"], NET: ["ONLINE", "OFFLINE"],
   SD: ["SD_CLEAN", "SD_DELETE", "SD_FULL"] };
@@ -537,6 +540,73 @@ $("#sd-list").addEventListener("click", (e) => {
   };
   dlg.showModal();
 });
+
+// ------------------------------------------------------------------ tagihan PLN bulanan (firmware ≥ 1.4.0)
+const BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+const ymText = (ym, short) => { const m = ym % 100; return m < 1 || m > 12 ? "—" : `${short ? BULAN[m - 1].slice(0, 3) : BULAN[m - 1]} ${Math.floor(ym / 100)}`; };
+const BILL_FL = [[1, "belum sebulan penuh"], [2, "batas bulan perkiraan"], [4, "kWh dari ESP32"], [8, "penghitung sempat reset"]];
+const billFlags = (f) => BILL_FL.filter(([b]) => f & b).map(([, t]) => t).join(", ");
+const dmyhm = (t) => `${dmy(t)} ${hm(t)}`;
+async function loadBill() {
+  if (S.billBusy) return;
+  S.billBusy = true;
+  try { S.bill = await fetch("/api/bill").then((x) => x.json()); }
+  catch (e) { S.bill = { ok: 0, msg: "server dashboard tidak dapat dihubungi" }; }
+  S.billBusy = false;
+  renderBill();
+}
+function renderBill() {
+  const d = S.bill || {};
+  let cur = d.ok ? d.cur : null, cfg = d;
+  const sb = !d.ok && (d.status_bill || (S.status && S.status.bill));
+  if (sb && sb.ok) {       // web panel tak terjangkau: ringkasan bulan ini dari status MQTT
+    cur = { ym: sb.ym, kwh: sb.kwh, total: sb.rp, proj_kwh: sb.proj_kwh, proj_total: sb.proj_rp, fl: sb.fl || 0 };
+    cfg = sb;
+  }
+  if (cur) {
+    $("#b-month").textContent = ymText(cur.ym);
+    $("#b-range").textContent = (cur.from ? `tanggal 1 s.d. ${dmy(cur.to - 1)} · ` : "") + `tarif Rp${nf(cfg.tarif, 2)}/kWh + PBJT ${nf(cfg.pbjt, 1)} % · ${cfg.pasca ? "pascabayar" : "prabayar"}`;
+    $("#b-kwh").innerHTML = `${nf(cur.kwh, 2)}<small> kWh</small>`;
+    $("#b-kwh-s").textContent = cur.fl & 1 && cur.start ? `dicatat sejak ${dmyhm(cur.start)}, belum sebulan penuh` : (billFlags(cur.fl) || "sejak tanggal 1 pukul 00:00");
+    $("#b-rp").textContent = rp(cur.total);
+    $("#b-rp-s").textContent = cur.energi != null ? `energi ${rp(cur.energi)} + PBJT ${rp(cur.pbjt_rp)}` : "termasuk PBJT";
+    $("#b-proj").textContent = cur.proj_total != null ? rp(cur.proj_total) : "—";
+    $("#b-proj-s").textContent = cur.proj_kwh != null ? `≈ ${nf(cur.proj_kwh, 0)} kWh bila pola pemakaian tetap${cur.proj_min ? " · kena rekening minimum" : ""}` : "muncul setelah data 24 jam";
+  } else {
+    ["#b-kwh", "#b-rp", "#b-proj"].forEach((k) => ($(k).textContent = "—"));
+    $("#b-month").textContent = "Bulan ini";
+    $("#b-range").textContent = "";
+    $("#b-kwh-s").textContent = d.ok && !d.time_ok ? "jam panel belum tersinkron (perlu Wi-Fi berinternet)" : (d.msg || "menunggu data panel");
+    $("#b-rp-s").textContent = $("#b-proj-s").textContent = "—";
+  }
+  const hist = d.ok ? d.hist || [] : [];
+  $("#b-hist").innerHTML = `<tr><th>Bulan</th><th class="r">kWh</th><th class="r">Biaya</th><th>Catatan</th></tr>` +
+    (hist.length ? hist.map((h) => `<tr><td>${ymText(h.ym)}</td><td class="r">${nf(h.kwh, 2)}</td><td class="r">${rp(h.total)}</td><td class="fl">${esc(billFlags(h.fl))}</td></tr>`).join("")
+      : `<tr><td colspan="4" class="fl">${d.ok ? "Belum ada bulan yang selesai. Bulan ini masuk riwayat setelah pukul 00:00 tanggal 1 bulan depan." : sb && sb.ok ? "Riwayat tidak tersedia." : esc(d.msg || "Riwayat tidak tersedia.")}</td></tr>`);
+  $("#b-hint").innerHTML = d.ok ? `Biaya riwayat dihitung dengan tarif saat bulan itu ditutup. Halaman di panel: <a href="${esc(d.panel_url)}/" target="_blank" rel="noopener">${esc(d.panel_url)}/</a>`
+    : sb && sb.ok ? `Riwayat diambil langsung dari panel dan saat ini tidak tersedia: ${esc(d.msg || "")}` : "";
+  // isi formulir tarif dengan nilai panel (kecuali sedang diubah pengguna)
+  const f = $("#b-set");
+  if (cfg && cfg.tarif != null && !f.contains(document.activeElement) && !f.dataset.dirty) {
+    $("#b-tarif").value = cfg.tarif; $("#b-pbjt").value = cfg.pbjt; $("#b-pasca").value = String(cfg.pasca ? 1 : 0);
+  }
+}
+$("#b-refresh").addEventListener("click", loadBill);
+$("#b-set").addEventListener("input", () => ($("#b-set").dataset.dirty = "1"));
+$("#b-set").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const want = { tarif_kwh: parseFloat($("#b-tarif").value), pbjt: parseFloat($("#b-pbjt").value), pasca: +$("#b-pasca").value };
+  const d = S.bill && S.bill.ok ? S.bill : (S.status && S.status.bill) || {};
+  const now = { tarif_kwh: d.tarif, pbjt: d.pbjt, pasca: d.pasca ? 1 : 0 };
+  const keys = Object.keys(want).filter((k) => now[k] == null || Math.abs(want[k] - now[k]) > 1e-6);
+  if (!keys.length) { toast("Tidak ada perubahan tarif"); return; }
+  $("#b-save").disabled = true;
+  for (const k of keys) { const r = await sendCmd({ cmd: "set_param", key: k, value: want[k] }); if (!r.ok) break; }
+  $("#b-save").disabled = false;
+  delete $("#b-set").dataset.dirty;
+  setTimeout(loadBill, 800);
+});
+setInterval(() => { if ($("#pane-tagihan").classList.contains("active")) loadBill(); }, 30000);
 
 // ------------------------------------------------------------------ SSE
 function applyTelemetry(t) {

@@ -4,7 +4,7 @@
 // =====================================================================
 #pragma once
 
-#define FW_VERSION      "1.3.0"
+#define FW_VERSION      "1.4.0"
 #define PANEL_ID        "panel01"          // prefiks topik MQTT: apfc/panel01/...
 
 // ---------------- Wi-Fi & MQTT ----------------
@@ -63,6 +63,16 @@
 #define DEF_P_MIN       10.0f   // W; di bawah ini semua step dilepas (tanpa beban)
 #define DEF_TARIFF      1114.74f// Rp/kVArh (asumsi, Bab 3)
 #define DEF_SCALE       1000.0f // skala tampilan setara industri
+
+// ---------------- Tagihan PLN bulanan (rumah) — layar 4 LCD, http://<IP panel>/, tab Tagihan ----------------
+// Bisa diubah tanpa upload: "set tarif_kwh 1444.70", "set pbjt 8", "set pasca 1" (Serial / dashboard).
+// Bila nilai di sini diubah lalu di-upload, nilai baru menggantikan nilai lama di NVS.
+#define PLN_TARIF_KWH   1444.70f// Rp/kWh golongan R-1/TR 2.200 VA (Permen ESDM 7/2024; masih berlaku Okt 2026).
+                                // PLN meninjau tarif tiap 3 bulan: cek pengumuman PLN tiap awal triwulan.
+#define PLN_PBJT_PCT    8.0f    // % PBJT tenaga listrik (dulu PPJ), tergantung kota/kabupaten (Kota Bandung 8 %).
+                                // Lihat baris PPJ/PBJT di struk token atau rekening listrik.
+#define PLN_PASCABAYAR  0       // 0 = prabayar (token); 1 = pascabayar: berlaku rekening minimum 40 jam nyala
+#define PLN_DAYA_VA     2200    // daya tersambung PLN (VA), untuk rekening minimum pascabayar
 #define N_FAIL          3       // gagal baca berturut-turut → FAIL-SAFE
 #define N_RECOVER       5       // bacaan valid berturut-turut → pulih
 #define MAX_ON_PER_DECISION 1   // maksimal step yang disambung per keputusan
@@ -72,6 +82,7 @@
 #define LCD_PAGE1_MS    60000   // layar 1: V, I, P, Q, PF, f, step (60 s)
 #define LCD_PAGE2_MS    10000   // layar 2: energi, rasio kVArh/kWh, penalti (10 s)
 #define LCD_PAGE3_MS    10000   // layar 3: Wi-Fi, MQTT, meter, uptime (10 s)
+#define LCD_PAGE4_MS    10000   // layar 4: tagihan PLN bulan ini (10 s)
 #define LOG_PERIOD_MS   10000   // tulis microSD tiap 10 s
 #define SD_MIN_FREE_MB  100     // sisa ruang minimum microSD; di bawahnya file harian TERTUA dihapus otomatis
 #define SD_CHECK_MS     600000UL// periksa sisa ruang microSD tiap 10 menit

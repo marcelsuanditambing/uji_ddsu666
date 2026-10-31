@@ -202,7 +202,7 @@ bool setParam(const char* key, float v, char* msg, size_t n) {
   struct { const char* k; float lo, hi; } R[] = {
       {"pf_target", 0.90f, 0.99f}, {"hyst", 0.05f, 0.9f}, {"lead_w", 1.0f, 5.0f}, {"t_reconnect", 10, 60},
       {"n_avg", 1, 10}, {"n_skip", 0, 5}, {"p_min", 0, 200}, {"c1", 0.5f, 20}, {"c2", 0.5f, 20}, {"c3", 0.5f, 20},
-      {"tariff", 1, 100000}, {"scale", 1, 1000}};
+      {"tariff", 1, 100000}, {"scale", 1, 1000}, {"tarif_kwh", 100, 10000}, {"pbjt", 0, 25}, {"pasca", 0, 1}};
   for (auto& r : R) {
     if (strcmp(key, r.k)) continue;
     if (v < r.lo || v > r.hi) { snprintf(msg, n, "%s di luar rentang %.2f-%.2f", key, r.lo, r.hi); return false; }
@@ -218,6 +218,9 @@ bool setParam(const char* key, float v, char* msg, size_t n) {
     else if (!strcmp(key, "c3")) P.c_uf[2] = v;
     else if (!strcmp(key, "tariff")) P.tariff = v;
     else if (!strcmp(key, "scale")) P.scale = v;
+    else if (!strcmp(key, "tarif_kwh")) P.tarif_kwh = v;
+    else if (!strcmp(key, "pbjt")) P.pbjt = v;
+    else if (!strcmp(key, "pasca")) P.pasca = v >= 0.5f ? 1 : 0;
     snprintf(msg, n, "%s = %.3f (tersimpan)", key, v);
     return true;
   }
