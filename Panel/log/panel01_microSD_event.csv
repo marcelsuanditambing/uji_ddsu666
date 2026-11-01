@@ -1,0 +1,163 @@
+{"ts":0,"type":"FAILSAFE","detail":"meter tidak terbaca 3x"}
+{"ts":0,"type":"FAILSAFE","detail":"meter tidak terbaca 3x"}
+{"ts":0,"type":"FAILSAFE","detail":"meter tidak terbaca 3x"}
+{"ts":0,"type":"FAILSAFE","detail":"meter tidak terbaca 3x"}
+{"ts":0,"type":"FAILSAFE","detail":"meter tidak terbaca 3x"}
+{"ts":0,"type":"MODE","detail":"AUTO"}
+{"ts":0,"type":"STEP_ON","detail":"C1 Qneed=48 Qload=57"}
+{"ts":0,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":0,"type":"STEP_ON","detail":"C2 Qneed=92 Qload=110"}
+{"ts":0,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":0,"type":"FAILSAFE","detail":"meter tidak terbaca 3x"}
+{"ts":0,"type":"MODE","detail":"AUTO"}
+{"ts":0,"type":"STEP_ON","detail":"C1 Qneed=48 Qload=58"}
+{"ts":0,"type":"MODE","detail":"AUTO"}
+{"ts":0,"type":"MODE","detail":"AUTO"}
+{"ts":0,"type":"STEP_ON","detail":"C1 Qneed=64 Qload=75"}
+{"ts":0,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":0,"type":"FAILSAFE","detail":"meter tidak terbaca 3x"}
+{"ts":0,"type":"FAILSAFE","detail":"meter tidak terbaca 3x"}
+{"ts":0,"type":"FAILSAFE","detail":"meter tidak terbaca 3x"}
+{"ts":0,"type":"MODE","detail":"AUTO"}
+{"ts":0,"type":"STEP_ON","detail":"C1 Qneed=63 Qload=75"}
+{"ts":0,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":0,"type":"STEP_ON","detail":"C2 Qneed=96 Qload=114"}
+{"ts":0,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":0,"type":"MODE","detail":"AUTO"}
+{"ts":1792424972,"type":"STEP_ON","detail":"C1 Qneed=49 Qload=58"}
+{"ts":1792424996,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":1792425028,"type":"STEP_ON","detail":"C2 Qneed=94 Qload=112"}
+{"ts":1792425056,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":1792425074,"type":"STEP_ON","detail":"C3 Qneed=94 Qload=112"}
+{"ts":1792425112,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":1792425448,"type":"STEP_ON","detail":"C1 Qneed=95 Qload=113"}
+{"ts":1792425478,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":1792425494,"type":"STEP_ON","detail":"C2 Qneed=94 Qload=112"}
+{"ts":1792425520,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":1792425536,"type":"STEP_ON","detail":"C3 Qneed=93 Qload=111"}
+{"ts":1792425600,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":0,"type":"FAILSAFE","detail":"meter tidak terbaca 3x"}
+{"ts":0,"type":"FAILSAFE","detail":"meter tidak terbaca 3x"}
+{"ts":0,"type":"FAILSAFE","detail":"meter tidak terbaca 3x"}
+{"ts":0,"type":"RECOVER","detail":"AUTO"}
+{"ts":0,"type":"FAILSAFE","detail":"meter tidak terbaca 3x"}
+{"ts":0,"type":"FAILSAFE","detail":"meter tidak terbaca 3x"}
+{"ts":0,"type":"RECOVER","detail":"AUTO"}
+{"ts":0,"type":"STEP_ON","detail":"C2 Qneed=51 Qload=60"}
+{"ts":0,"type":"STEP_OFF","detail":"C2 Qneed=39 Qload=115"}
+{"ts":0,"type":"STEP_ON","detail":"C3 Qneed=39 Qload=115"}
+{"ts":0,"type":"STEP_ON","detail":"C1 Qneed=7 Qload=117"}
+{"ts":0,"type":"STEP_OFF","detail":"C1 Qneed=-70 Qload=60"}
+{"ts":0,"type":"STEP_ON","detail":"C2 Qneed=-70 Qload=60"}
+{"ts":0,"type":"STEP_OFF","detail":"C3 Qneed=-70 Qload=60"}
+{"ts":0,"type":"STEP_OFF","detail":"C2 Qneed=38 Qload=114"}
+{"ts":0,"type":"STEP_ON","detail":"C3 Qneed=38 Qload=114"}
+{"ts":0,"type":"STEP_ON","detail":"C1 Qneed=7 Qload=117"}
+{"ts":0,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":0,"type":"STEP_ON","detail":"C3 Qneed=97 Qload=115"}
+{"ts":0,"type":"STEP_ON","detail":"C1 Qneed=7 Qload=117"}
+{"ts":0,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":0,"type":"STEP_ON","detail":"C3 Qneed=99 Qload=117"}
+{"ts":0,"type":"STEP_ON","detail":"C1 Qneed=6 Qload=117"}
+{"ts":0,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":0,"type":"FAILSAFE","detail":"meter tidak terbaca 3x"}
+{"ts":0,"type":"FAILSAFE","detail":"meter tidak terbaca 3x"}
+{"ts":0,"type":"FAILSAFE","detail":"meter tidak terbaca 3x"}
+{"ts":0,"type":"FAILSAFE","detail":"meter tidak terbaca 3x"}
+{"ts":0,"type":"RECOVER","detail":"AUTO"}
+{"ts":0,"type":"STEP_ON","detail":"C2 Qneed=51 Qload=60"}
+{"ts":0,"type":"STEP_OFF","detail":"C2 Qneed=39 Qload=116"}
+{"ts":0,"type":"STEP_ON","detail":"C3 Qneed=39 Qload=116"}
+{"ts":0,"type":"STEP_ON","detail":"C1 Qneed=8 Qload=118"}
+{"ts":0,"type":"STEP_ON","detail":"C2 Qneed=83 Qload=260"}
+{"ts":0,"type":"STEP_OFF","detail":"C2 Qneed=-82 Qload=116"}
+{"ts":0,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":0,"type":"FAILSAFE","detail":"meter tidak terbaca 3x"}
+{"ts":0,"type":"RECOVER","detail":"AUTO"}
+{"ts":0,"type":"STEP_ON","detail":"C2 Qneed=49 Qload=58"}
+{"ts":0,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":0,"type":"MODE","detail":"AUTO"}
+{"ts":0,"type":"MODE","detail":"AUTO"}
+{"ts":1792508938,"type":"MODE","detail":"MANUAL"}
+{"ts":1792508962,"type":"STEP_ON","detail":"C2 ON"}
+{"ts":1792508973,"type":"LOAD","detail":"beban K1 padam"}
+{"ts":1792508974,"type":"STEP_OFF","detail":"C2 OFF"}
+{"ts":1792508985,"type":"LOAD","detail":"beban K1 menyala"}
+{"ts":1792508994,"type":"LOAD","detail":"beban K1 padam"}
+{"ts":1792509037,"type":"MODE","detail":"AUTO"}
+{"ts":1792509042,"type":"LOAD","detail":"beban K1 menyala"}
+{"ts":1792509055,"type":"STEP_ON","detail":"C2 Qneed=47 Qload=56"}
+{"ts":1792509099,"type":"STEP_OFF","detail":"C2 Qneed=33 Qload=107"}
+{"ts":1792509099,"type":"STEP_ON","detail":"C3 Qneed=33 Qload=107"}
+{"ts":1792509113,"type":"STEP_ON","detail":"C1 Qneed=3 Qload=110"}
+{"ts":1792509137,"type":"LOAD","detail":"beban K1 padam"}
+{"ts":1792509149,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":1792509159,"type":"LOAD","detail":"beban K1 menyala"}
+{"ts":1792509173,"type":"STEP_ON","detail":"C3 Qneed=92 Qload=109"}
+{"ts":1792509187,"type":"STEP_ON","detail":"C1 Qneed=3 Qload=110"}
+{"ts":1792509205,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":1792509266,"type":"FAILSAFE","detail":"meter tidak terbaca 3x"}
+{"ts":0,"type":"MODE","detail":"AUTO"}
+{"ts":1792567534,"type":"STEP_ON","detail":"C2 Qneed=55 Qload=65"}
+{"ts":1792567560,"type":"STEP_OFF","detail":"C2 Qneed=44 Qload=122"}
+{"ts":1792567560,"type":"STEP_ON","detail":"C3 Qneed=44 Qload=122"}
+{"ts":1792567574,"type":"STEP_ON","detail":"C1 Qneed=11 Qload=125"}
+{"ts":1792567594,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":1792570568,"type":"STEP_ON","detail":"C2 Qneed=56 Qload=66"}
+{"ts":1792570724,"type":"STEP_OFF","detail":"C2 Qneed=44 Qload=123"}
+{"ts":1792570724,"type":"STEP_ON","detail":"C3 Qneed=44 Qload=123"}
+{"ts":1792570738,"type":"STEP_ON","detail":"C1 Qneed=11 Qload=126"}
+{"ts":1792570858,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":0,"type":"MODE","detail":"AUTO"}
+{"ts":1792644576,"type":"STEP_ON","detail":"C3 Qneed=105 Qload=123"}
+{"ts":1792644590,"type":"STEP_ON","detail":"C1 Qneed=12 Qload=124"}
+{"ts":1792644804,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":1792644885,"type":"MODE","detail":"AUTO"}
+{"ts":1792645857,"type":"STEP_ON","detail":"C2 Qneed=55 Qload=65"}
+{"ts":1792645877,"type":"STEP_OFF","detail":"C2 Qneed=46 Qload=125"}
+{"ts":1792645877,"type":"STEP_ON","detail":"C3 Qneed=46 Qload=125"}
+{"ts":1792645891,"type":"STEP_ON","detail":"C1 Qneed=13 Qload=126"}
+{"ts":1792645909,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":1792646536,"type":"MODE","detail":"AUTO"}
+{"ts":1792650356,"type":"MODE","detail":"AUTO"}
+{"ts":1792650412,"type":"STEP_ON","detail":"C2 Qneed=53 Qload=62"}
+{"ts":1792650460,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":1792650478,"type":"STEP_ON","detail":"C2 Qneed=52 Qload=62"}
+{"ts":1792650498,"type":"STEP_OFF","detail":"C2 Qneed=41 Qload=117"}
+{"ts":1792650498,"type":"STEP_ON","detail":"C3 Qneed=41 Qload=117"}
+{"ts":1792650512,"type":"STEP_ON","detail":"C1 Qneed=10 Qload=121"}
+{"ts":1792651002,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":0,"type":"MODE","detail":"AUTO"}
+{"ts":1792717694,"type":"STEP_ON","detail":"C2 Qneed=56 Qload=65"}
+{"ts":1792717718,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":1792717736,"type":"STEP_ON","detail":"C2 Qneed=58 Qload=67"}
+{"ts":1792717759,"type":"LOAD","detail":"beban K1 padam"}
+{"ts":1792717768,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":1792717773,"type":"LOAD","detail":"beban K1 menyala"}
+{"ts":1792717784,"type":"STEP_ON","detail":"C2 Qneed=53 Qload=63"}
+{"ts":1792717798,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":1792719975,"type":"MODE","detail":"AUTO"}
+{"ts":1792720887,"type":"STEP_ON","detail":"C2 Qneed=58 Qload=67"}
+{"ts":1792720917,"type":"STEP_OFF","detail":"C2 Qneed=43 Qload=120"}
+{"ts":1792720917,"type":"STEP_ON","detail":"C3 Qneed=43 Qload=120"}
+{"ts":1792720931,"type":"STEP_ON","detail":"C1 Qneed=11 Qload=122"}
+{"ts":1792720961,"type":"LOAD","detail":"beban K1 padam"}
+{"ts":1792720973,"type":"STEP_OFF","detail":"semua (P < p_min)"}
+{"ts":1792720996,"type":"LOAD","detail":"beban K1 menyala"}
+{"ts":0,"type":"MODE","detail":"AUTO"}
+{"ts":1793456666,"type":"MODE","detail":"MANUAL"}
+{"ts":1793456679,"type":"STEP_ON","detail":"C1 ON"}
+{"ts":1793456732,"type":"MODE","detail":"AUTO"}
+{"ts":1793456776,"type":"MODE","detail":"MANUAL"}
+{"ts":1793456780,"type":"STEP_OFF","detail":"C1 OFF"}
+{"ts":1793456795,"type":"MODE","detail":"AUTO"}
+{"ts":1793461630,"type":"MODE","detail":"AUTO"}
+{"ts":0,"type":"MODE","detail":"AUTO"}
+{"ts":0,"type":"MODE","detail":"AUTO"}
+{"ts":0,"type":"MODE","detail":"AUTO"}
+{"ts":1793463800,"type":"MODE","detail":"AUTO"}
+{"ts":1793463958,"type":"MODE","detail":"AUTO"}
+{"ts":0,"type":"MODE","detail":"AUTO"}
+{"ts":1793464028,"type":"MODE","detail":"AUTO"}
+{"ts":1793466004,"type":"BILL_MONTH","detail":"Okt 2026: 0.52 kWh, Rp811 (tidak lengkap/perkiraan)"}
+{"ts":1793511400,"type":"STEP_ON","detail":"C3 Qneed=21 Qload=150"}
