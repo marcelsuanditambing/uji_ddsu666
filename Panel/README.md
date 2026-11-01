@@ -1,4 +1,4 @@
-# APFC Panel — Firmware ESP32 v1.4.0
+# APFC Panel — Firmware ESP32 v1.4.1
 
 Firmware panel IoT Automatic Power Factor Correction (Fase 1) — Tim Aku Anak Sehat.
 Spesifikasi lengkap: *Technical Design Book* TDB-APFC-01, Bab 7.
@@ -22,7 +22,17 @@ platformio.ini      (opsional) bila memakai PlatformIO/VS Code
 mosquitto.conf      contoh konfigurasi broker di laptop
 ```
 
-Kode v1.4.0 sudah dikompilasi tanpa error dan tanpa peringatan pada paket ESP32 **3.3.5** (flash 84 %) dan **2.0.17** (flash 70 %), skema partisi bawaan.
+Kode v1.4.1 sudah dikompilasi tanpa error dan tanpa peringatan pada paket ESP32 **3.3.5** (flash 84 %), skema partisi bawaan (v1.4.0 juga lolos di 2.0.17).
+
+**Perubahan v1.4.1**
+- **Batas kelebihan kompensasi (kapasitif).** Sebelumnya panel diam selama PF ≥ 0,95, termasuk saat Q sisa kapasitif:
+  pada beban 1 kW, C3 (±90–103 var) dibiarkan menyala walau beban induktif tinggal ±70 var (Q sisa −20 var).
+  Sekarang pita diam −batas ≤ Q sisa ≤ P·tan(arccos 0,95), dengan batas kapasitif = `cap_lim` × Q step terkecil
+  (bawaan 0,5 ≈ 14–16 var). Bila Q sisa lebih kapasitif, step dilepas atau ditukar (mis. C3 → C2).
+- Saat di luar pita, kombinasi yang hasilnya masuk pita selalu diutamakan; bila kombinasi terbaik masih menunggu
+  jeda sambung ulang (≤ 10 s), panel menunggu daripada pindah dua kali.
+- Parameter baru `cap_lim` (`DEF_CAP_LIM` di `config.h`, `set cap_lim 0.5`, juga di tab Kontrol dan status MQTT).
+- Pemecah seri (step yang paling lama beristirahat) dibatasi 1 jam agar tidak membesar setelah panel menyala berminggu-minggu.
 
 **Perubahan v1.4.0**
 - **Tagihan PLN bulanan** (`billing.h`): panel menghitung kWh dari tanggal 1 pukul 00:00 WIB sampai akhir bulan
@@ -167,7 +177,7 @@ Gunakan Serial Monitor. Ketik `help` untuk semua perintah.
 
 - Baca meter tiap 2 s; sampel transien (√(P²+Q²) ≠ U·I) dan 2 sampel setelah switching diabaikan.
 - Keputusan memakai rata-rata 5 sampel (10 s); bila beban melompat, rata-rata dimulai ulang.
-- Dari 8 kombinasi step, dipilih yang membuat Q sisa paling kecil (kondisi kapasitif diberi bobot 1,2×). Panel **diam** bila |Q| ≤ P·tan(arccos 0,95), dan hanya pindah bila perbaikannya > 0,2 × Q step terkecil (histeresis, anti-hunting). Maksimal 1 step disambung per keputusan; jeda sambung ulang 10 s.
+- Panel **diam** selama Q sisa ada di pita −`cap_lim`·Q(C1) ≤ Q ≤ P·tan(arccos 0,95): sisi induktif sampai PF 0,95, sisi kapasitif hanya sampai ±14–16 var (setengah step C1). Di luar pita, dari 8 kombinasi step dipilih yang masuk pita dengan Q sisa paling dekat ke 0 (kondisi kapasitif diberi bobot 1,2×); bila tidak ada yang masuk pita, dipilih yang paling dekat ke 0 asal perbaikannya > 0,2 × Q step terkecil (histeresis, anti-hunting). Maksimal 1 step disambung per keputusan; jeda sambung ulang 10 s (panel menunggu bila kombinasi terbaik masih dalam jeda).
 - P < 10 W → semua step dilepas. Meter gagal 3× → **FAIL-SAFE** (semua step OFF), pulih setelah 5 bacaan valid.
 - kWh, kVArh induktif/kapasitif, dan kVArh "tanpa APFC" diintegrasi lalu disimpan ke NVS tiap 1 menit.
 

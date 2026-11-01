@@ -52,10 +52,31 @@ void integrateEnergyLocked(const Sample& s) {
 }
 
 // ---------------- algoritma AUTO ----------------
-// Memilih kombinasi step (2^3) yang membuat Q sisa paling dekat ke 0 dengan bobot lebih besar
-// untuk kondisi kapasitif. Berpindah hanya bila kondisi saat ini di luar pita target DAN
-// perbaikannya lebih besar dari margin histeresis; maksimal MAX_ON_PER_DECISION step disambung.
+// Pita diam (panel tidak mengubah step):  −capLim ≤ Q sisa ≤ qt
+//   qt     = P · tan(arccos pf_target)              sisi induktif: PF masih ≥ target
+//   capLim = min(cap_lim × Q step terkecil, qt)     sisi kapasitif: kelebihan kompensasi yang masih diterima
+// Di luar pita, dari 8 kombinasi step dipilih yang hasilnya MASUK pita dengan Q sisa paling dekat ke 0
+// (kondisi kapasitif diberi bobot lead_w). Bila tidak ada yang masuk pita, dipilih yang paling dekat ke 0
+// asal perbaikannya > histeresis. Maksimal MAX_ON_PER_DECISION step disambung per keputusan; bila kombinasi
+// terbaik masih menunggu jeda sambung ulang, panel menunggu (≤ t_reconnect) daripada pindah dua kali.
 float qCost(float qa) { return qa >= 0 ? qa : -qa * P.lead_w; }
+
+struct Cand {
+  bool  out;    // Q sisa di luar pita
+  float cost;   // qCost + pemecah seri
+};
+// a lebih baik dari b: di dalam pita selalu menang; bila sama-sama di dalam/luar pita, harus lebih kecil > margin
+bool candBetter(const Cand& a, const Cand& b, float margin) {
+  if (a.out != b.out) return !a.out;
+  return a.cost < b.cost - margin;
+}
+
+// Pemecah seri: utamakan step yang paling lama beristirahat / paling lama menyala (dibatasi 1 jam agar tetap kecil)
+float restTie(uint32_t now, uint32_t since) {
+  uint32_t el = now - since;
+  if (el > 3600000UL) el = 3600000UL;
+  return el * 1e-9f;
+}
 
 void autoDecideLocked() {
   if (G.mode != ST_AUTO || G.state != ST_AUTO) return;
@@ -69,7 +90,8 @@ void autoDecideLocked() {
     if (G.step[k]) qOn += qs[k];
     qMin = min(qMin, qs[k]);
   }
-  float qt = Pm * tanf(acosf(P.pf_target));   // Q yang masih boleh tersisa
+  float qt = Pm * tanf(acosf(P.pf_target));   // sisi induktif: Q yang masih boleh tersisa
+  float capLim = min(P.cap_lim * qMin, qt);   // sisi kapasitif: kelebihan kompensasi yang masih diterima
   float qLoad = Qm + qOn;
   G.q_need = Qm - qt;
 
@@ -85,43 +107,51 @@ void autoDecideLocked() {
     return;
   }
 
-  // kondisi saat ini sudah di dalam pita target (PF ≥ target, induktif maupun kapasitif)
-  if (fabsf(Qm) <= qt) return;
+  auto outOfBand = [&](float q) { return q > qt || q < -capLim; };
+  if (!outOfBand(Qm)) return;                 // di dalam pita target: diam
 
   int curMask = 0;
   for (int k = 0; k < NUM_STEPS; k++) if (G.step[k]) curMask |= 1 << k;
-  float curCost = qCost(Qm);
-  int best = curMask;
-  float bestScore = curCost;
+  const Cand cur = {true, qCost(Qm)};
+  int best = curMask, bestWait = -1;
+  Cand bestC = cur, bestWaitC = {true, 1e9f};
   uint32_t now = millis();
   for (int m = 0; m < (1 << NUM_STEPS); m++) {
     if (m == curMask) continue;
     int newOn = 0;
-    bool feasible = true;
-    float qa = qLoad;
-    float tie = 0;   // pemecah seri: utamakan step yang paling lama beristirahat / paling lama menyala
+    bool wait = false;
+    float qa = qLoad, tie = 0;
     for (int k = 0; k < NUM_STEPS; k++) {
       bool on = m & (1 << k);
       if (on) qa -= qs[k];
       if (on && !G.step[k]) {
         newOn++;
-        if (reconnectWaitS(k) > 0) feasible = false;
-        tie -= (now - G.stepOffMs[k]) * 1e-9f;
+        if (reconnectWaitS(k) > 0) wait = true;
+        tie -= restTie(now, G.stepOffMs[k]);
       }
-      if (!on && G.step[k]) tie -= (now - G.stepOnMs[k]) * 1e-9f;
+      if (!on && G.step[k]) tie -= restTie(now, G.stepOnMs[k]);
     }
-    if (!feasible || newOn > MAX_ON_PER_DECISION) continue;
-    float score = qCost(qa) + tie;
-    if (score < bestScore) { bestScore = score; best = m; }
+    if (newOn > MAX_ON_PER_DECISION) continue;
+    Cand c = {outOfBand(qa), qCost(qa) + tie};
+    if (wait) {
+      if (candBetter(c, bestWaitC, 0)) { bestWaitC = c; bestWait = m; }
+    } else if (candBetter(c, bestC, 0)) {
+      bestC = c;
+      best = m;
+    }
   }
-  if (best == curMask || bestScore > curCost - P.hyst * qMin) return;
+  float margin = P.hyst * qMin;
+  if (bestWait >= 0 && candBetter(bestWaitC, bestC, margin)) return;   // tunggu jeda sambung ulang
+  if (best == curMask || !candBetter(bestC, cur, margin)) return;
 
   char d[80];
+  bool capSide = Qm < -capLim;
   for (int k = 0; k < NUM_STEPS; k++) {
     bool on = best & (1 << k);
     if (on == G.step[k]) continue;
     setStepLocked(k, on);
-    snprintf(d, sizeof(d), "C%d Qneed=%.0f Qload=%.0f", k + 1, G.q_need, qLoad);
+    if (capSide) snprintf(d, sizeof(d), "C%d Qsisa=%.1f < -%.1f (kapasitif) Qload=%.0f", k + 1, Qm, capLim, qLoad);
+    else snprintf(d, sizeof(d), "C%d Qneed=%.0f Qload=%.0f", k + 1, G.q_need, qLoad);
     postEvent(on ? "STEP_ON" : "STEP_OFF", d);
   }
   afterSwitchLocked();
@@ -200,7 +230,7 @@ void onSampleLocked(Sample& s) {
 // ---------------- eksekusi perintah (hanya dari task kendali) ----------------
 bool setParam(const char* key, float v, char* msg, size_t n) {
   struct { const char* k; float lo, hi; } R[] = {
-      {"pf_target", 0.90f, 0.99f}, {"hyst", 0.05f, 0.9f}, {"lead_w", 1.0f, 5.0f}, {"t_reconnect", 10, 60},
+      {"pf_target", 0.90f, 0.99f}, {"hyst", 0.05f, 0.9f}, {"lead_w", 1.0f, 5.0f}, {"cap_lim", 0.1f, 10.0f}, {"t_reconnect", 10, 60},
       {"n_avg", 1, 10}, {"n_skip", 0, 5}, {"p_min", 0, 200}, {"c1", 0.5f, 20}, {"c2", 0.5f, 20}, {"c3", 0.5f, 20},
       {"tariff", 1, 100000}, {"scale", 1, 1000}, {"tarif_kwh", 100, 10000}, {"pbjt", 0, 25}, {"pasca", 0, 1}};
   for (auto& r : R) {
@@ -209,6 +239,7 @@ bool setParam(const char* key, float v, char* msg, size_t n) {
     if (!strcmp(key, "pf_target")) P.pf_target = v;
     else if (!strcmp(key, "hyst")) P.hyst = v;
     else if (!strcmp(key, "lead_w")) P.lead_w = v;
+    else if (!strcmp(key, "cap_lim")) P.cap_lim = v;
     else if (!strcmp(key, "t_reconnect")) P.t_reconnect = (uint16_t)v;
     else if (!strcmp(key, "n_avg")) P.n_avg = (uint8_t)v;
     else if (!strcmp(key, "n_skip")) P.n_skip = (uint8_t)v;

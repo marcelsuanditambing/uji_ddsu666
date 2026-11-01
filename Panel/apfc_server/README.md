@@ -80,7 +80,7 @@ Untuk latihan atau pengembangan tampilan (mis. oleh Aina) tanpa ESP32:
 python tools\simulator.py                 # C1/C2/C3 = 2 / 4 / 6,36 µF (susunan panel sekarang)
 python tools\simulator.py --c 6.36,6.36,6.36
 ```
-Beban di MCB berganti otomatis tiap 40 s (kosong → 1 TL → 2 TL → 1 TL). Beban K1 (kontak NC, bawaan menyala, setara 1 TL) bisa dimatikan dari tab Kontrol. Algoritma pemilihan kombinasi, jeda sambung ulang, ack, dan penolakan perintah meniru firmware v1.2.0.
+Beban di MCB berganti otomatis tiap 40 s (kosong → 1 TL → 2 TL → 1 TL). Beban K1 (kontak NC, bawaan menyala, setara 1 TL) bisa dimatikan dari tab Kontrol. Algoritma pemilihan kombinasi, jeda sambung ulang, ack, dan penolakan perintah meniru firmware v1.4.1 (termasuk batas Q kapasitif `cap_lim`).
 Simulator juga meniru **microSD panel** (firmware 1.3.0) di `http://127.0.0.1:8081/` dengan contoh file 3 hari terakhir, sehingga unduh/hapus di tab Log bisa dicoba tanpa panel (`--sd-port 0` untuk mematikan). Di port yang sama simulator meniru `/bill` (firmware 1.4.0): rumah ±7,2 kWh/hari dengan riwayat 3 bulan contoh.
 **Jangan jalankan simulator bersamaan dengan panel asli** (topiknya sama).
 

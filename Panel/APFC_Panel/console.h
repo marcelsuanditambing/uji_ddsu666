@@ -12,7 +12,7 @@ void printHelp() {
       "step <1-3> on|off      atur step kapasitor (hanya MANUAL)\n"
       "beban on|off           nyalakan/matikan beban demo (relay K1, kontak NC)\n"
       "params                 tampilkan parameter\n"
-      "set <kunci> <nilai>    ubah parameter, mis. set c3 4.1 | set pf_target 0.95\n"
+      "set <kunci> <nilai>    ubah parameter, mis. set c3 4.1 | set pf_target 0.95 | set cap_lim 0.5\n"
       "energy reset           nolkan penghitung kWh/kVArh\n"
       "sd                     status microSD dan daftar file log (unduh: http://<IP panel>/)\n"
       "tagihan                kWh & biaya PLN bulan ini + riwayat (set tarif_kwh | pbjt | pasca)\n"
@@ -24,8 +24,8 @@ void printHelp() {
 }
 
 void printParams() {
-  Serial.printf("pf_target=%.3f hyst=%.2f lead_w=%.2f t_reconnect=%u n_avg=%u n_skip=%u p_min=%.1f\n", P.pf_target,
-                P.hyst, P.lead_w, P.t_reconnect, P.n_avg, P.n_skip, P.p_min);
+  Serial.printf("pf_target=%.3f hyst=%.2f lead_w=%.2f cap_lim=%.2f t_reconnect=%u n_avg=%u n_skip=%u p_min=%.1f\n",
+                P.pf_target, P.hyst, P.lead_w, P.cap_lim, P.t_reconnect, P.n_avg, P.n_skip, P.p_min);
   Serial.printf("c1=%.2f c2=%.2f c3=%.2f uF  tariff=%.2f scale=%.0f\n", P.c_uf[0], P.c_uf[1], P.c_uf[2], P.tariff, P.scale);
   Serial.printf("tarif_kwh=%.2f Rp/kWh  pbjt=%.1f %%  pasca=%u (%s, %d VA)\n", P.tarif_kwh, P.pbjt, P.pasca,
                 P.pasca ? "pascabayar" : "prabayar", PLN_DAYA_VA);

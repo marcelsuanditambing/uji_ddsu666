@@ -92,6 +92,7 @@ void buildStatus(char* out, size_t n) {
   JsonArray c = d["c_uf"].to<JsonArray>();
   for (int k = 0; k < NUM_STEPS; k++) c.add(P.c_uf[k]);
   d["pf_target"] = P.pf_target;
+  d["cap_lim"] = P.cap_lim;
   d["sd_ok"] = s.sdOk ? 1 : 0;
   d["sd_total_mb"] = s.sdTotalMB;
   d["sd_used_mb"] = s.sdUsedMB;

@@ -19,6 +19,7 @@ struct Params {
   float    pf_target = DEF_PF_TARGET;
   float    hyst = DEF_HYST;
   float    lead_w = DEF_LEAD_W;
+  float    cap_lim = DEF_CAP_LIM;   // × Q step terkecil: batas Q sisa kapasitif
   uint16_t t_reconnect = DEF_T_RECONNECT;
   uint8_t  n_avg = DEF_N_AVG;
   uint8_t  n_skip = DEF_N_SKIP;

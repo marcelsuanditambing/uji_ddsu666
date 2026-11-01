@@ -39,10 +39,10 @@ ap.add_argument("--sd-port", type=int, default=8081, help="port web microSD tiru
 A = ap.parse_args()
 
 BASE = f"apfc/{A.panel}/"
-P = {"pf_target": 0.95, "hyst": 0.20, "lead_w": 1.2, "t_reconnect": 10, "n_avg": 5, "n_skip": 2, "p_min": 10.0,
+P = {"pf_target": 0.95, "hyst": 0.20, "lead_w": 1.2, "cap_lim": 0.5, "t_reconnect": 10, "n_avg": 5, "n_skip": 2, "p_min": 10.0,
      "c": [float(x) for x in A.c.split(",")], "tariff": 1114.74, "scale": 1000.0,
      "tarif_kwh": 1444.70, "pbjt": 8.0, "pasca": 0}
-FW = "sim-1.4.0"
+FW = "sim-1.4.1"
 
 # beban (pada 225 V): TL 18 W + ballast → P 32 W, Q 72.6 var ; kompresor kecil (ilustratif)
 TL = (32.0, 72.6)
@@ -109,28 +109,42 @@ def decide(cli, now, pm, qm, vm, fm):
                     set_step(k, 0, now)
             event(cli, "STEP_OFF", "semua (P < p_min)")
         return
-    if abs(qm) <= qt:
+    # pita diam: -cap_lim × Q step terkecil ≤ Q sisa ≤ qt (sama dengan firmware 1.4.1)
+    cap_lim = min(P["cap_lim"] * min(qs), qt)
+    out = lambda q: q > qt or q < -cap_lim
+    if not out(qm):
         return
     cost = lambda qa: qa if qa >= 0 else -qa * P["lead_w"]
+    better = lambda a, b, margin: (not a[0]) if a[0] != b[0] else a[1] < b[1] - margin
     cur = tuple(S["steps"])
-    best, best_score = cur, cost(qm)
-    cur_cost = best_score
+    cur_c = (True, cost(qm))
+    best, best_c = cur, cur_c
+    bw, bw_c = None, (True, 1e9)
     for m in itertools.product((0, 1), repeat=3):
         if m == cur:
             continue
         new_on = [k for k in range(3) if m[k] and not cur[k]]
-        if len(new_on) > 1 or any(wait_s(k, now) > 0 for k in new_on):
+        if len(new_on) > 1:
             continue
         qa = q_load - sum(qs[k] for k in range(3) if m[k])
-        sc = cost(qa)
-        if sc < best_score:
-            best, best_score = m, sc
-    if best == cur or best_score > cur_cost - P["hyst"] * min(qs):
+        c = (out(qa), cost(qa))
+        if any(wait_s(k, now) > 0 for k in new_on):
+            if better(c, bw_c, 0):
+                bw, bw_c = m, c
+        elif better(c, best_c, 0):
+            best, best_c = m, c
+    margin = P["hyst"] * min(qs)
+    if bw is not None and better(bw_c, best_c, margin):
+        return                                   # kombinasi terbaik masih menunggu jeda sambung ulang
+    if best == cur or not better(best_c, cur_c, margin):
         return
+    cap_side = qm < -cap_lim
     for k in range(3):
         if best[k] != cur[k]:
             set_step(k, best[k], now)
-            event(cli, "STEP_ON" if best[k] else "STEP_OFF", f"C{k+1} Qneed={S['q_need']:.0f} Qload={q_load:.0f}")
+            d = (f"C{k+1} Qsisa={qm:.1f} < -{cap_lim:.1f} (kapasitif) Qload={q_load:.0f}" if cap_side
+                 else f"C{k+1} Qneed={S['q_need']:.0f} Qload={q_load:.0f}")
+            event(cli, "STEP_ON" if best[k] else "STEP_OFF", d)
 
 
 def ack(cli, cid, ok, msg):
@@ -140,7 +154,7 @@ def ack(cli, cid, ok, msg):
         event(cli, "CMD_REJECT", f"{cid}: {msg}")
 
 
-RANGES = {"pf_target": (0.90, 0.99), "hyst": (0.05, 0.9), "lead_w": (1.0, 5.0), "t_reconnect": (10, 60),
+RANGES = {"pf_target": (0.90, 0.99), "hyst": (0.05, 0.9), "lead_w": (1.0, 5.0), "cap_lim": (0.1, 10), "t_reconnect": (10, 60),
           "n_avg": (1, 10), "n_skip": (0, 5), "p_min": (0, 200), "c1": (0.5, 20), "c2": (0.5, 20), "c3": (0.5, 20),
           "tariff": (1, 100000), "scale": (1, 1000), "tarif_kwh": (100, 10000), "pbjt": (0, 25), "pasca": (0, 1)}
 
@@ -374,7 +388,7 @@ SD_CLI = None
 def status(cli):
     d = {"state": S["state"], "mode": S["mode"], "steps": S["steps"], "sockets": S["socks"], "meter_ok": 1,
          "fw": FW, "uptime": int(time.time() - S["t0"]), "ip": "127.0.0.1" if A.sd_port else "192.168.137.50",
-         "c_uf": P["c"], "pf_target": P["pf_target"],
+         "c_uf": P["c"], "pf_target": P["pf_target"], "cap_lim": P["cap_lim"],
          "sd_ok": 1 if A.sd_port else 0, "sd_total_mb": SD_TOTAL_MB if A.sd_port else 0,
          "sd_used_mb": sd_used_mb() if A.sd_port else 0, "web": A.sd_port}
     b = bill_now()

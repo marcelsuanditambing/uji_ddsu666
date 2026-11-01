@@ -4,7 +4,7 @@
 // =====================================================================
 #pragma once
 
-#define FW_VERSION      "1.4.0"
+#define FW_VERSION      "1.4.1"
 #define PANEL_ID        "panel01"          // prefiks topik MQTT: apfc/panel01/...
 
 // ---------------- Wi-Fi & MQTT ----------------
@@ -57,6 +57,8 @@
 #define DEF_PF_TARGET   0.95f   // target cos φ
 #define DEF_HYST        0.20f   // perbaikan minimal untuk berpindah = HYST × Q step terkecil
 #define DEF_LEAD_W      1.2f    // bobot hukuman kondisi kapasitif (leading) dibanding induktif
+#define DEF_CAP_LIM     0.5f    // batas Q sisa KAPASITIF = 0,5 × Q step terkecil (C1 2 µF ≈ 14–16 var). Bila Q sisa
+                                // lebih kapasitif dari ini, step dilepas/ditukar walau PF masih ≥ target.
 #define DEF_T_RECONNECT 10      // detik, jeda minimum sebelum step yang sama disambung lagi (≥ 10)
 #define DEF_N_AVG       5       // jumlah sampel rata-rata (5 × 2 s = 10 s)
 #define DEF_N_SKIP      2       // sampel diabaikan setelah switching

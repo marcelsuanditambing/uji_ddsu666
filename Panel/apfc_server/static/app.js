@@ -428,7 +428,8 @@ function renderCtl() {
      </div>
      <div class="hint">Perubahan beban akan dikoreksi ESP32 secara otomatis dalam ±15 s (mode AUTO). Bila ESP32 mati atau reset, beban kembali MENYALA karena memakai kontak NC.</div>`;
   const s = S.status || {}, c = cuf();
-  $("#p-cur").textContent = `Nilai saat ini: pf_target ${s.pf_target != null ? nf(s.pf_target, 2) : "—"} · c1 ${nf(c[0], 2)} · c2 ${nf(c[1], 2)} · c3 ${nf(c[2], 2)} µF`;
+  const capVar = s.cap_lim != null ? ` (≈ ${nf(s.cap_lim * qStep(c[0], (S.tel && S.tel.v) || 220), 0)} var)` : "";
+  $("#p-cur").textContent = `Nilai saat ini: pf_target ${s.pf_target != null ? nf(s.pf_target, 2) : "—"} · cap_lim ${s.cap_lim != null ? nf(s.cap_lim, 2) : "—"}${capVar} · c1 ${nf(c[0], 2)} · c2 ${nf(c[1], 2)} · c3 ${nf(c[2], 2)} µF`;
   $("#ctl-param button").disabled = busy || !live;
   $("#btn-ereset").disabled = busy || !live;
 }

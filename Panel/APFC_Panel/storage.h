@@ -9,6 +9,7 @@ void nvsLoad() {
   P.pf_target   = prefs.getFloat("pf_target", P.pf_target);
   P.hyst        = prefs.getFloat("hyst", P.hyst);
   P.lead_w      = prefs.getFloat("lead_w", P.lead_w);
+  P.cap_lim     = prefs.getFloat("cap_lim", P.cap_lim);
   P.t_reconnect = prefs.getUShort("t_reconn", P.t_reconnect);
   P.n_avg       = prefs.getUChar("n_avg", P.n_avg);
   P.n_skip      = prefs.getUChar("n_skip", P.n_skip);
@@ -63,6 +64,7 @@ void nvsSaveParams() {
   prefs.putFloat("pf_target", P.pf_target);
   prefs.putFloat("hyst", P.hyst);
   prefs.putFloat("lead_w", P.lead_w);
+  prefs.putFloat("cap_lim", P.cap_lim);
   prefs.putUShort("t_reconn", P.t_reconnect);
   prefs.putUChar("n_avg", P.n_avg);
   prefs.putUChar("n_skip", P.n_skip);
